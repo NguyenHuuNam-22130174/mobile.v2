@@ -20,6 +20,7 @@ const moviesData = [
     title: "Inception",
     overview: "A thief who steals corporate secrets through dream-sharing technology.",
     poster: "inception.jpg", // ✅ TÊN FILE TRONG uploads/posters
+    videoUrl: "https://www.youtube.com/watch?v=d9MyW72ELq0",
     releaseDate: new Date("2010-07-16"),
     runtime: 148,
     status: "Released",
@@ -31,6 +32,7 @@ const moviesData = [
     title: "Interstellar",
     overview: "A team of explorers travel through a wormhole in space.",
     poster: "interstellar.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=d9MyW72ELq0",
     releaseDate: new Date("2014-11-07"),
     runtime: 169,
     status: "Released",
@@ -42,6 +44,7 @@ const moviesData = [
     title: "The Dark Knight",
     overview: "Batman raises the stakes in his war on crime.",
     poster: "dark_night.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=d9MyW72ELq0",
     releaseDate: new Date("2008-07-18"),
     runtime: 152,
     status: "Released",
@@ -53,6 +56,7 @@ const moviesData = [
   title: "Avatar 2",
   overview: "Jake Sully lives with his newfound family on Pandora.",
   poster: "avatar_2.jpg", // tên file
+  videoUrl: "https://www.youtube.com/watch?v=d9MyW72ELq0",
   releaseDate: new Date("2022-12-16"),
   runtime: 192,
   status: "Released",
@@ -88,6 +92,7 @@ async function seed() {
       title: movie.title,
       overview: movie.overview,
       poster: movie.poster, // 🔥 LƯU TÊN FILE
+      videoUrl: movie.videoUrl || null, // 🔥 LINK PHIM
       releaseDate: movie.releaseDate,
       runtime: movie.runtime,
       status: movie.status,

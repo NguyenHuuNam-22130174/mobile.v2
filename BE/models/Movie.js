@@ -33,6 +33,11 @@ const MovieSchema = new mongoose.Schema({
         required: true,
     },
 
+    videoUrl: {
+    type: String,   // 🔥 LINK PHIM
+    required: false,
+    },
+
     releaseDate: Date,
     runtime: Number,
     status: String,

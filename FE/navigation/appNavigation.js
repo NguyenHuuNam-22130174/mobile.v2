@@ -104,6 +104,7 @@ import { AuthContext } from "../components/context/AuthContext";
 
 import LoginScreen from "../screens/LoginScreen";
 import HomeScreen from "../screens/HomeScreen";
+import MovieScreen from "../screens/MovieScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -124,6 +125,11 @@ export default function AppNavigation() {
             {isLoggedIn ? (
                 <Stack.Navigator screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="Home" component={HomeScreen} />
+                    <Stack.Screen
+                        name="Movie"
+                        component={MovieScreen}
+                        options={{ animation: "slide_from_right" }}
+                    />
                 </Stack.Navigator>
             ) : (
                 <Stack.Navigator screenOptions={{ headerShown: false }}>
