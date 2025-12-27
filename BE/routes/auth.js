@@ -28,7 +28,7 @@ router.post("/register", async (req, res) => {
         const user = await User.create({
             email,
             password: hashed,
-            createdAt: new Date(),
+            // createdAt: new Date(),
         });
 
         res.json({

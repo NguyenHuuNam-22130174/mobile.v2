@@ -7,6 +7,9 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/api/movies", require("./routes/movies"));
+app.use("/api/favorites", require("./routes/favorites"));
+app.use("/api/recently-seen", require("./routes/recentlySeen"));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))

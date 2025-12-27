@@ -99,10 +99,11 @@ export default function HomeScreen() {
         const recommended = [];
 
         for (let genre of topGenres) {
-            const res = await fetchMoviesByGenre(genre.id);
+            // const res = await fetchMoviesByGenre(genre.id);
+            const res = await fetchMoviesByGenre(genre.genreId);
             if (res?.results) {
                 const unseen = res.results.filter(
-                    (m) => !seen.find((s) => s.id === m.id)
+                    (m) => !seen.find((s) => s._id === m._id)
                 );
                 recommended.push(...unseen.slice(0, 5));
             }
@@ -133,10 +134,15 @@ export default function HomeScreen() {
         movies.forEach((movie) => {
             if (movie.genres) {
                 movie.genres.forEach((genre) => {
-                    if (genreCount[genre.id]) {
-                        genreCount[genre.id].count += 1;
+                    // if (genreCount[genre.id]) {
+                    //     genreCount[genre.id].count += 1;
+                    // } else {
+                    //     genreCount[genre.id] = { ...genre, count: 1 };
+                    // }
+                    if (genreCount[genre.genreId]) {
+                        genreCount[genre.genreId].count += 1;
                     } else {
-                        genreCount[genre.id] = { ...genre, count: 1 };
+                        genreCount[genre.genreId] = { ...genre, count: 1 };
                     }
                 });
             }
