@@ -19,7 +19,7 @@ const moviesData = [
   {
     title: "Inception",
     overview: "A thief who steals corporate secrets through dream-sharing technology.",
-    posterPath: "https://image.tmdb.org/t/p/w500/inception.jpg",
+    poster: "inception.jpg", // ✅ TÊN FILE TRONG uploads/posters
     releaseDate: new Date("2010-07-16"),
     runtime: 148,
     status: "Released",
@@ -30,7 +30,7 @@ const moviesData = [
   {
     title: "Interstellar",
     overview: "A team of explorers travel through a wormhole in space.",
-    posterPath: "https://image.tmdb.org/t/p/w500/interstellar.jpg",
+    poster: "interstellar.jpg",
     releaseDate: new Date("2014-11-07"),
     runtime: 169,
     status: "Released",
@@ -41,13 +41,24 @@ const moviesData = [
   {
     title: "The Dark Knight",
     overview: "Batman raises the stakes in his war on crime.",
-    posterPath: "https://image.tmdb.org/t/p/w500/darkknight.jpg",
+    poster: "dark_night.jpg",
     releaseDate: new Date("2008-07-18"),
     runtime: 152,
     status: "Released",
     voteAverage: 9.0,
     popularity: 95,
     genres: ["Action", "Drama"]
+  },
+  {
+  title: "Avatar 2",
+  overview: "Jake Sully lives with his newfound family on Pandora.",
+  poster: "avatar_2.jpg", // tên file
+  releaseDate: new Date("2022-12-16"),
+  runtime: 192,
+  status: "Released",
+  voteAverage: 7.8,
+  popularity: 85,
+  genres: ["Action", "Adventure", "Sci-Fi"]
   }
 ];
 // =================================================
@@ -57,10 +68,9 @@ async function seed() {
     await mongoose.connect(MONGO_URI);
     console.log("✅ MongoDB connected");
 
-    // XÓA DATA CŨ (nếu muốn reset)
+    // RESET DATA
     await Movie.deleteMany();
     await Genre.deleteMany();
-
     console.log("🧹 Old data removed");
 
     // INSERT GENRES
@@ -77,7 +87,7 @@ async function seed() {
     const movies = moviesData.map(movie => ({
       title: movie.title,
       overview: movie.overview,
-      posterPath: movie.posterPath,
+      poster: movie.poster, // 🔥 LƯU TÊN FILE
       releaseDate: movie.releaseDate,
       runtime: movie.runtime,
       status: movie.status,
