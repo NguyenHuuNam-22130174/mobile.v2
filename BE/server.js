@@ -15,11 +15,20 @@ app.use("/api/movies", require("./routes/movies"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/recently-seen", require("./routes/recentlySeen"));
 
+// mongoose.connect(process.env.MONGO_URI)
+//   .then(() => console.log('MongoDB connected'))
+//   .catch(err => console.error(err));
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(() => {
+    console.log("MongoDB connected (server)");
+    console.log("SERVER DB NAME =", mongoose.connection.name);
+  })
   .catch(err => console.error(err));
 
 app.use('/api/auth', authRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+console.log("SERVER MONGO_URI =", process.env.MONGO_URI);
+

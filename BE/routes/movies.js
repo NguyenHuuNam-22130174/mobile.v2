@@ -1,31 +1,3 @@
-// const express = require("express");
-// const Movie = require("../models/Movie");
-// const auth = require("../middleware/authMiddleware");
-
-// const router = express.Router();
-
-// // GET all movies
-// router.get("/", async (req, res) => {
-//   const movies = await Movie.find().limit(20);
-//   res.json(movies);
-// });
-
-// // SEARCH
-// router.get("/search", async (req, res) => {
-//   const q = req.query.q || "";
-//   const movies = await Movie.find({
-//     title: { $regex: q, $options: "i" }
-//   });
-//   res.json(movies);
-// });
-
-// // GET detail
-// router.get("/:id", async (req, res) => {
-//   const movie = await Movie.findById(req.params.id);
-//   res.json(movie);
-// });
-
-// module.exports = router;
 const express = require("express");
 const Movie = require("../models/Movie");
 
@@ -33,27 +5,30 @@ const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
-// helper: build posterUrl
 // const mapMovie = (movie) => ({
 //     _id: movie._id,
 //     title: movie.title,
-//     description: movie.description,
 //     genres: movie.genres,
 //     releaseDate: movie.releaseDate,
 
-//     // 🔥 CHỈ DÙNG FIELD NÀY Ở FE
-//     posterUrl: movie.poster
-//         ? `${BASE_URL}/uploads/posters/${movie.poster}`
-//         : null,
+//     posterUrl: `${BASE_URL}/uploads/posters/${movie.poster}`,
 // });
 const mapMovie = (movie) => ({
-    _id: movie._id,
-    title: movie.title,
-    genres: movie.genres,
-    releaseDate: movie.releaseDate,
+  _id: movie._id,
+  title: movie.title,
+  overview: movie.overview,          // nếu FE cần mô tả
+  genres: movie.genres,
+  releaseDate: movie.releaseDate,
+  runtime: movie.runtime,
+  status: movie.status,
+  voteAverage: movie.voteAverage,
+  popularity: movie.popularity,
 
-    // 🔥 DÒNG QUYẾT ĐỊNH
-    posterUrl: `${BASE_URL}/uploads/posters/${movie.poster}`,
+  posterUrl: movie.poster
+    ? `${BASE_URL}/uploads/posters/${movie.poster}`
+    : null,
+
+  videoUrl: movie.videoUrl || null,  // ✅ QUAN TRỌNG: trả videoUrl
 });
 // GET all movies
 router.get("/", async (req, res) => {

@@ -230,6 +230,14 @@ const ios = Platform.OS === "ios";
 const topMargin = ios ? "" : " mt-3";
 const { width, height } = Dimensions.get("window");
 
+const getYoutubeId = (url) => {
+  if (!url || typeof url !== "string") return ""; // ✅ chặn null
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/
+  );
+  return match?.[1] || "";
+};
+
 export default function MovieScreen() {
     const { params: movie } = useRoute(); // 👈 movie từ API riêng
     const navigation = useNavigation();
@@ -377,11 +385,21 @@ export default function MovieScreen() {
                     padding: 18,
                     borderRadius: 100,
                 }}
-                onPress={() =>
-                    navigation.navigate("Trailer", {
-                        videoId: "fX3qI4lQ6P0", // hoặc backend trả về
-                    })
-                }
+                // onPress={() =>
+                //     navigation.navigate("Trailer", {
+                //         videoId: "fX3qI4lQ6P0", // hoặc backend trả về
+                //     })
+                // }
+                onPress={() => {
+                    const videoId = getYoutubeId(movie?.videoUrl);
+
+                    if (!videoId) {
+                        console.log("❌ Phim này chưa có videoUrl:", movie?.title);
+                        return;
+                    }
+
+                    navigation.navigate("Trailer", { videoId });
+                }}
             >
                 <Text style={{ color: "white", fontSize: 28 }}>▶</Text>
             </TouchableOpacity>
