@@ -442,7 +442,8 @@ import {
     MagnifyingGlassIcon,
 } from "react-native-heroicons/outline";
 import { StatusBar } from "expo-status-bar";
-import { useNavigation } from "@react-navigation/native";
+// import { useNavigation } from "@react-navigation/native";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
 import MovieList from "../components/movieList";
 import Loading from "../components/loading";
 import { useTheme } from "../components/context/ThemeContext";
@@ -468,16 +469,6 @@ export default function HomeScreen() {
         startAnimations();
     }, []);
 
-    // const loadMovies = async () => {
-    //     try {
-    //         const res = await API.get("/movies");
-    //         setMovies(res.data);
-    //     } catch (err) {
-    //         console.log("❌ FETCH MOVIES ERROR:", err);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
     const loadMovies = async () => {
         try {
             console.log("📡 CALL API: /api/movies");
@@ -546,7 +537,8 @@ export default function HomeScreen() {
                 <SafeAreaView edges={["top"]} style={styles.safeArea}>
                     <View style={styles.headerContent}>
                         <TouchableOpacity
-                            onPress={() => navigation.openDrawer()}
+                            // onPress={() => navigation.openDrawer()}
+                            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
                             style={styles.iconButton}
                         >
                             <Bars3CenterLeftIcon

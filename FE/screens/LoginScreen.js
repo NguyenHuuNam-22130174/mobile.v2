@@ -29,6 +29,11 @@ export default function LoginScreen({ navigation }) {
         setMessage("");
 
         try {
+            console.log("🌐 baseURL =", API.defaults.baseURL);
+            console.log("➡️ POST /auth/login payload =", {
+                email: email.trim().toLowerCase(),
+                password: password.trim(),
+            });
             const res = await API.post("/auth/login", {
                 email: email.trim().toLowerCase(),
                 password: password.trim(),
@@ -41,12 +46,22 @@ export default function LoginScreen({ navigation }) {
                 setMessage("No token received from server.");
             }
         } catch (err) {
+            // const errorMsg =
+            //     err.response?.data?.error ||
+            //     err.response?.data?.message ||
+            //     "Unknown login error";
+            // setMessage(errorMsg);
+            // console.error("Login error:", err);
+            console.log("❌ Login error status:", err?.response?.status);
+            console.log("❌ Login error data:", err?.response?.data);
+            console.log("❌ Login error message:", err?.message);
+
             const errorMsg =
-                err.response?.data?.error ||
-                err.response?.data?.message ||
+                err?.response?.data?.error ||
+                err?.response?.data?.message ||
                 "Unknown login error";
+
             setMessage(errorMsg);
-            console.error("Login error:", err);
         } finally {
             setIsLoading(false);
         }
