@@ -1,462 +1,127 @@
-// import {
-//     View,
-//     Text,
-//     TouchableOpacity,
-//     ScrollView,
-//     Platform,
-//     Animated,
-//     Easing,
-//     StyleSheet,
-// } from "react-native";
-// import React, { useEffect, useState, useRef, useCallback } from "react";
-// import { SafeAreaView } from "react-native-safe-area-context";
-// import {
-//     Bars3CenterLeftIcon,
-//     MagnifyingGlassIcon,
-// } from "react-native-heroicons/outline";
-// import { ChevronRightIcon } from "react-native-heroicons/solid";
-// import TrendingMovies from "../components/trendingMovies";
-// import MovieList from "../components/movieList";
-// import { StatusBar } from "expo-status-bar";
-// import {
-//     fetchTopRatedMovies,
-//     fetchTrendingMovies,
-//     fetchUpcomingMovies,
-// } from "../api/moviedb";
-// import { useNavigation, useFocusEffect } from "@react-navigation/native";
-// import Loading from "../components/loading";
-// import { useTheme } from "../components/context/ThemeContext";
-// import AsyncStorage from "@react-native-async-storage/async-storage";
-// import { fetchMoviesByGenre } from "../api/moviedb"; // Adjust path as needed
-
-// const ios = Platform.OS === "ios";
-// const HEADER_HEIGHT = ios ? 60 : 70;
-
-// export default function HomeScreen() {
-//     const [trending, setTrending] = useState([]);
-//     const [upcoming, setUpcoming] = useState([]);
-//     const [topRated, setTopRated] = useState([]);
-//     const [recentlySeen, setRecentlySeen] = useState([]);
-//     const [loading, setLoading] = useState(true);
-//     const navigation = useNavigation();
-//     const { theme, isDarkMode } = useTheme();
-//     const [recommendedMovies, setRecommendedMovies] = useState([]);
-
-//     // Animation values
-//     const fadeAnim = useRef(new Animated.Value(0)).current;
-//     const headerY = useRef(new Animated.Value(-HEADER_HEIGHT)).current;
-//     const contentY = useRef(new Animated.Value(30)).current;
-
-//     useEffect(() => {
-//         loadData();
-//         startAnimations();
-//     }, []);
-
-//     useFocusEffect(
-//         useCallback(() => {
-//             const fetchData = async () => {
-//                 const seen = await loadRecentlySeen();
-//                 await loadRecommendedMovies(seen);
-//             };
-
-//             fetchData();
-//         }, [])
-//     );
-//     // const clearRecentlySeen = async () => {
-//     //     try {
-//     //         await AsyncStorage.removeItem("recentlySeen");
-//     //         setRecentlySeen([]); // Cập nhật state để UI không hiển thị nữa
-//     //         alert("Đã xóa danh sách phim đã xem gần đây.");
-//     //     } catch (error) {
-//     //         console.error("Lỗi khi xóa recentlySeen:", error);
-//     //     }
-//     // };
-
-
-//     const loadData = async () => {
-//         try {
-//             const [trendingData, upcomingData, topRatedData] =
-//                 await Promise.all([
-//                     fetchTrendingMovies(),
-//                     fetchUpcomingMovies(),
-//                     fetchTopRatedMovies(),
-//                 ]);
-
-//             if (trendingData?.results) setTrending(trendingData.results);
-//             if (upcomingData?.results) setUpcoming(upcomingData.results);
-//             if (topRatedData?.results) setTopRated(topRatedData.results);
-//         } catch (error) {
-//             console.error("Error fetching data:", error);
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-//     // them loadRecommendedMovies
-//     const loadRecommendedMovies = async (seen) => {
-//         if (!seen.length) return;
-
-//         const topGenres = getMostWatchedGenres(seen);
-//         const recommended = [];
-
-//         for (let genre of topGenres) {
-//             // const res = await fetchMoviesByGenre(genre.id);
-//             const res = await fetchMoviesByGenre(genre.genreId);
-//             if (res?.results) {
-//                 const unseen = res.results.filter(
-//                     (m) => !seen.find((s) => s._id === m._id)
-//                 );
-//                 recommended.push(...unseen.slice(0, 5));
-//             }
-//         }
-
-//         setRecommendedMovies(recommended);
-//     };
-
-//     const loadRecentlySeen = async () => {
-//         try {
-//             const data = await AsyncStorage.getItem("recentlySeen");
-//             if (data) {
-//                 const parsed = JSON.parse(data);
-//                 setRecentlySeen(parsed);
-//                 return parsed;
-//             }
-//             setRecentlySeen([]);
-//             return [];
-//         } catch (error) {
-//             console.error("Error loading recently seen movies:", error);
-//             return [];
-//         }
-//     };
-//     // them getMostWatchedGenres
-//     const getMostWatchedGenres = (movies) => {
-//         const genreCount = {};
-
-//         movies.forEach((movie) => {
-//             if (movie.genres) {
-//                 movie.genres.forEach((genre) => {
-//                     // if (genreCount[genre.id]) {
-//                     //     genreCount[genre.id].count += 1;
-//                     // } else {
-//                     //     genreCount[genre.id] = { ...genre, count: 1 };
-//                     // }
-//                     if (genreCount[genre.genreId]) {
-//                         genreCount[genre.genreId].count += 1;
-//                     } else {
-//                         genreCount[genre.genreId] = { ...genre, count: 1 };
-//                     }
-//                 });
-//             }
-//         });
-
-//         const sortedGenres = Object.values(genreCount).sort(
-//             (a, b) => b.count - a.count
-//         );
-
-//         return sortedGenres.slice(0, 2); // top 2 genres
-//     };
-
-//     const startAnimations = () => {
-//         // Header slide down animation
-//         Animated.timing(headerY, {
-//             toValue: 0,
-//             duration: 800,
-//             easing: Easing.out(Easing.exp),
-//             useNativeDriver: true,
-//         }).start();
-
-//         // Content fade in + slide up animation
-//         Animated.parallel([
-//             Animated.timing(fadeAnim, {
-//                 toValue: 1,
-//                 duration: 1000,
-//                 useNativeDriver: true,
-//             }),
-//             Animated.timing(contentY, {
-//                 toValue: 0,
-//                 duration: 800,
-//                 delay: 200,
-//                 easing: Easing.out(Easing.exp),
-//                 useNativeDriver: true,
-//             }),
-//         ]).start();
-//     };
-
-//     const handleSeeAll = (type) => {
-//         if (type === "upcoming") {
-//             navigation.navigate("Upcoming");
-//         } else if (type === "top_rated") {
-//             navigation.navigate("TopRated");
-//         } else if (type === "recently_seen") {
-//             navigation.navigate("RecentlySeen");
-//         }
-//     };
-
-//     const renderSectionHeader = (title, type) => (
-//         <View style={styles.sectionHeader}>
-//             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-//                 {title}
-//             </Text>
-//             {type && (
-//                 <TouchableOpacity
-//                     style={styles.seeAllButton}
-//                     onPress={() => handleSeeAll(type)}
-//                     activeOpacity={0.6}
-//                 >
-//                     <Text
-//                         style={[
-//                             styles.seeAllText,
-//                             { color: theme.colors.primary },
-//                         ]}
-//                     >
-//                         See All
-//                     </Text>
-//                     <ChevronRightIcon size={18} color={theme.colors.primary} />
-//                 </TouchableOpacity>
-//             )}
-//         </View>
-//     );
-
-//     if (loading) {
-//         return <Loading />;
-//     }
-
-//     return (
-//         <View
-//             style={[
-//                 styles.container,
-//                 { backgroundColor: theme.colors.background },
-//             ]}
-//         >
-//             <StatusBar style={isDarkMode ? "light" : "dark"} />
-
-//             {/* Animated Header */}
-//             <Animated.View
-//                 style={[
-//                     styles.header,
-//                     {
-//                         backgroundColor: theme.colors.background,
-//                         transform: [{ translateY: headerY }],
-//                     },
-//                 ]}
-//             >
-//                 <SafeAreaView edges={["top"]} style={styles.safeArea}>
-//                     <View style={styles.headerContent}>
-//                         <TouchableOpacity
-//                             onPress={() => navigation.openDrawer()}
-//                             style={styles.iconButton}
-//                             activeOpacity={0.7}
-//                         >
-//                             <Bars3CenterLeftIcon
-//                                 size={28}
-//                                 strokeWidth={2}
-//                                 color={theme.colors.text}
-//                             />
-//                         </TouchableOpacity>
-
-//                         <Text
-//                             style={[styles.logo, { color: theme.colors.text }]}
-//                         >
-//                             <Text style={{ color: theme.colors.primary }}>
-//                                 M
-//                             </Text>
-//                             FLIX
-//                         </Text>
-
-//                         <TouchableOpacity
-//                             onPress={() => navigation.navigate("Search")}
-//                             style={styles.iconButton}
-//                             activeOpacity={0.7}
-//                         >
-//                             <MagnifyingGlassIcon
-//                                 size={28}
-//                                 strokeWidth={2}
-//                                 color={theme.colors.text}
-//                             />
-//                         </TouchableOpacity>
-//                     </View>
-//                 </SafeAreaView>
-//             </Animated.View>
-
-//             {/* Main Content */}
-//             <Animated.ScrollView
-//                 showsVerticalScrollIndicator={false}
-//                 contentContainerStyle={styles.scrollContent}
-//                 style={{
-//                     opacity: fadeAnim,
-//                     transform: [{ translateY: contentY }],
-//                 }}
-//             >
-//                 {/* Trending Movies */}
-//                 {trending.length > 0 && (
-//                     <TrendingMovies
-//                         data={trending}
-//                         style={styles.trendingSection}
-//                     />
-//                 )}
-
-//                 {/* Recently Seen Movies */}
-//                 {recentlySeen.length > 0 && (
-//                     <View style={styles.section}>
-//                         {/* {renderSectionHeader("Recently Seen", "recently_seen")} */}
-//                         <Text
-//                             style={[
-//                                 styles.sectionTitle,
-//                                 { color: theme.colors.text },
-//                             ]}
-//                         >
-//                             RecentlySeen
-//                         </Text>
-//                         <MovieList
-//                             data={recentlySeen.slice(0, 5)}
-//                             hideSeeAll={true}
-//                             cardStyle={styles.movieCard}
-//                         />
-//                     </View>
-//                 )}
-//                 {recommendedMovies.length > 0 && (
-//                     <View style={styles.section}>
-//                         <Text
-//                             style={[styles.sectionTitle, { color: theme.colors.text }]}
-//                         >
-//                             Recommended for You
-//                         </Text>
-//                         <MovieList
-//                             data={recommendedMovies}
-//                             hideSeeAll={true}
-//                             cardStyle={styles.movieCard}
-//                         />
-//                     </View>
-//                 )}
-
-//                 {/* Upcoming Movies */}
-//                 {upcoming.length > 0 && (
-//                     <View style={styles.section}>
-//                         {renderSectionHeader("Upcoming Movies", "upcoming")}
-//                         <MovieList
-//                             data={upcoming.slice(0, 5)}
-//                             hideSeeAll={true}
-//                             cardStyle={styles.movieCard}
-//                         />
-//                     </View>
-//                 )}
-
-
-//                 {/* Top Rated Movies */}
-//                 {topRated.length > 0 && (
-//                     <View style={styles.section}>
-//                         {renderSectionHeader("Top Rated Movies", "top_rated")}
-//                         <MovieList
-//                             data={topRated.slice(0, 5)}
-//                             hideSeeAll={true}
-//                             cardStyle={styles.movieCard}
-//                         />
-//                     </View>
-//                 )}
-//             </Animated.ScrollView>
-//         </View>
-//     );
-// }
-
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//     },
-//     safeArea: {
-//         zIndex: 10,
-//     },
-//     header: {
-//         position: "absolute",
-//         top: 0,
-//         left: 0,
-//         right: 0,
-//         zIndex: 10,
-//         elevation: 10,
-//         shadowColor: "#000",
-//         shadowOffset: { width: 0, height: 2 },
-//         shadowOpacity: 0.2,
-//         shadowRadius: 4,
-//     },
-//     headerContent: {
-//         flexDirection: "row",
-//         justifyContent: "space-between",
-//         alignItems: "center",
-//         paddingHorizontal: 20,
-//         height: HEADER_HEIGHT,
-//     },
-//     logo: {
-//         fontSize: 28,
-//         fontWeight: "bold",
-//         letterSpacing: 1,
-//     },
-//     iconButton: {
-//         padding: 8,
-//     },
-//     scrollContent: {
-//         paddingTop: HEADER_HEIGHT + 16,
-//         paddingBottom: 30,
-//     },
-//     trendingSection: {
-//         marginBottom: 30,
-//     },
-//     section: {
-//         marginBottom: 30,
-//         paddingHorizontal: 16,
-//     },
-//     sectionHeader: {
-//         flexDirection: "row",
-//         justifyContent: "space-between",
-//         alignItems: "center",
-//         marginBottom: 16,
-//     },
-//     sectionTitle: {
-//         fontSize: 22,
-//         fontWeight: "bold",
-//     },
-//     seeAllButton: {
-//         flexDirection: "row",
-//         alignItems: "center",
-//     },
-//     seeAllText: {
-//         fontSize: 15,
-//         fontWeight: "600",
-//         marginRight: 4,
-//     },
-//     movieCard: {
-//         marginRight: 12,
-//     },
-// });
 import {
     View,
     Text,
     TouchableOpacity,
-    ScrollView,
     Platform,
     Animated,
     Easing,
     StyleSheet,
 } from "react-native";
-import React, { useEffect, useState, useRef } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
     Bars3CenterLeftIcon,
     MagnifyingGlassIcon,
 } from "react-native-heroicons/outline";
 import { StatusBar } from "expo-status-bar";
-// import { useNavigation } from "@react-navigation/native";
-import { useNavigation, DrawerActions } from "@react-navigation/native";
+import { useNavigation, DrawerActions, useFocusEffect } from "@react-navigation/native";
 import MovieList from "../components/movieList";
 import Loading from "../components/loading";
 import { useTheme } from "../components/context/ThemeContext";
-import { API } from "../api/api"; // 🔥 axios client của bạn
+import { API } from "../api/api"; // axios client
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ios = Platform.OS === "ios";
 const HEADER_HEIGHT = ios ? 60 : 70;
+const RECENTLY_KEY = "recentlySeen";
+
+const norm = (s) => (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+const date10 = (d) => (d ? String(d).slice(0, 10) : "");
+
+function safeParseDate(value) {
+    const t = Date.parse(value);
+    return Number.isFinite(t) ? new Date(t) : null;
+}
+
+// ưu tiên field nào có thì lấy làm "điểm" để sort
+function getMovieScore(m) {
+    return (
+        m?.voteAverage ??
+        m?.rating ??
+        m?.imdbRating ??
+        m?.popularity ??
+        m?.views ??
+        0
+    );
+}
+
+function hasGenre(movie, genreId) {
+    const list = movie?.genres || [];
+    return list.some(
+        (g) => g?.genreId === genreId || g?.id === genreId
+    );
+}
+
+function getMostWatchedGenres(movies) {
+    const genreCount = {};
+
+    movies.forEach((movie) => {
+        if (!movie?.genres) return;
+        movie.genres.forEach((g) => {
+            const key = g?.genreId ?? g?.id;
+            if (!key) return;
+
+            if (genreCount[key]) {
+                genreCount[key].count += 1;
+            } else {
+                genreCount[key] = { ...g, count: 1 };
+            }
+        });
+    });
+
+    return Object.values(genreCount)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 2); // top 2 genres
+}
+
+const getMovieKey = (m) => {
+  const title = norm(m?.title ?? m?.name);
+  const date = date10(m?.releaseDate ?? m?.release_date);
+  if (title) return `${title}|${date}`;
+  const id = m?._id ?? m?.id;
+  return id ? `id:${id}` : "";
+};
+
+async function addRecentlySeen(movie, limit = 20) {
+  const raw = await AsyncStorage.getItem(RECENTLY_KEY);
+  const list = raw ? JSON.parse(raw) : [];
+  const safe = Array.isArray(list) ? list : [];
+
+  const key = getMovieKey(movie);
+  const next = [movie, ...safe.filter((m) => getMovieKey(m) !== key)].slice(0, limit);
+
+  await AsyncStorage.setItem(RECENTLY_KEY, JSON.stringify(next));
+  return next;
+}
+
+function uniqueByKey(list) {
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const key = getMovieKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
 
 export default function HomeScreen() {
     const navigation = useNavigation();
     const { theme, isDarkMode } = useTheme();
+    const insets = useSafeAreaInsets();
+    const HEADER_TOTAL = HEADER_HEIGHT + (insets?.top || 0);
 
-    const [movies, setMovies] = useState([]);
+    // DATA states (giống code cũ)
+    const [trending, setTrending] = useState([]);
+    const [upcoming, setUpcoming] = useState([]);
+    const [topRated, setTopRated] = useState([]);
+    const [recentlySeen, setRecentlySeen] = useState([]);
+    const [recommendedMovies, setRecommendedMovies] = useState([]);
+
+    // giữ allMovies để recommend/filter
+    const [allMovies, setAllMovies] = useState([]);
+
     const [loading, setLoading] = useState(true);
 
     // animation
@@ -465,27 +130,112 @@ export default function HomeScreen() {
     const contentY = useRef(new Animated.Value(30)).current;
 
     useEffect(() => {
-        loadMovies();
+        loadData();
         startAnimations();
     }, []);
 
-    const loadMovies = async () => {
+    // mỗi lần quay lại Home -> reload recently + recommend (giống code cũ)
+    useFocusEffect(
+        useCallback(() => {
+            const run = async () => {
+                const seen = await loadRecentlySeen();
+                await loadRecommendedMovies(seen);
+            };
+            run();
+        }, [allMovies])
+    );
+
+    const loadData = async () => {
         try {
             console.log("📡 CALL API: /api/movies");
-
             const res = await API.get("/movies");
+            const list = Array.isArray(res.data) ? res.data : [];
 
             console.log("✅ API RESPONSE STATUS:", res.status);
-            console.log("📦 MOVIES DATA:", res.data);
+            console.log("📦 MOVIES DATA:", list);
 
-            setMovies(res.data);
+            setAllMovies(list);
+
+            // ====== client-side phân loại như code cũ ======
+            const now = new Date();
+
+            // Upcoming: releaseDate > hiện tại (nếu field có)
+            const up = list
+                .filter((m) => {
+                    const d = safeParseDate(m?.releaseDate);
+                    return d && d > now;
+                })
+                .sort((a, b) => safeParseDate(a.releaseDate) - safeParseDate(b.releaseDate));
+
+            // Top Rated: sort theo score (rating/voteAverage/...)
+            const top = [...list].sort((a, b) => getMovieScore(b) - getMovieScore(a));
+
+            // Trending: nếu có popularity/views thì tự sort; nếu không thì lấy top list
+            const trend = [...list].sort((a, b) => {
+                const sb = (b?.popularity ?? b?.views ?? getMovieScore(b));
+                const sa = (a?.popularity ?? a?.views ?? getMovieScore(a));
+                return sb - sa;
+            });
+
+            setUpcoming(up);
+            setTopRated(top);
+            setTrending(trend);
         } catch (err) {
-            console.log("❌ FETCH MOVIES ERROR:", err.message);
+            console.log("❌ FETCH MOVIES ERROR:", err?.message);
         } finally {
             setLoading(false);
         }
     };
 
+    const loadRecentlySeen = async () => {
+        try {
+            const data = await AsyncStorage.getItem(RECENTLY_KEY);
+            const parsed = data ? JSON.parse(data) : [];
+            const safeList = Array.isArray(parsed) ? parsed : [];
+
+            const cleaned = uniqueByKey(safeList);
+            setRecentlySeen(cleaned);
+
+            if (cleaned.length !== safeList.length) {
+                await AsyncStorage.setItem(RECENTLY_KEY, JSON.stringify(cleaned));
+            }
+
+            return cleaned;
+        } catch (error) {
+            console.error("Error loading recently seen movies:", error);
+            setRecentlySeen([]);
+            return [];
+        }
+    };
+
+    const loadRecommendedMovies = async (seen) => {
+        if (!seen?.length) {
+            setRecommendedMovies([]);
+            return;
+        }
+
+        const topGenres = getMostWatchedGenres(seen);
+        if (!topGenres.length) {
+            setRecommendedMovies([]);
+            return;
+        }
+
+        // recommend từ allMovies theo genre (không cần endpoint genre)
+        const rec = [];
+        for (const g of topGenres) {
+            const gid = g?.genreId ?? g?.id;
+            if (!gid) continue;
+
+            const sameGenre = allMovies.filter((m) => hasGenre(m, gid));
+            const unseen = sameGenre.filter(
+                (m) => !seen.find((s) => (s?._id ?? s?.id) === (m?._id ?? m?.id))
+            );
+
+            rec.push(...unseen.slice(0, 6));
+        }
+
+        setRecommendedMovies(uniqueByKey(rec));
+    };
 
     const startAnimations = () => {
         Animated.timing(headerY, {
@@ -511,17 +261,10 @@ export default function HomeScreen() {
         ]).start();
     };
 
-    if (loading) {
-        return <Loading />;
-    }
+    if (loading) return <Loading />;
 
     return (
-        <View
-            style={[
-                styles.container,
-                { backgroundColor: theme.colors.background },
-            ]}
-        >
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <StatusBar style={isDarkMode ? "light" : "dark"} />
 
             {/* HEADER */}
@@ -531,68 +274,95 @@ export default function HomeScreen() {
                     {
                         backgroundColor: theme.colors.background,
                         transform: [{ translateY: headerY }],
+                        paddingTop: insets.top,
                     },
                 ]}
             >
-                <SafeAreaView edges={["top"]} style={styles.safeArea}>
-                    <View style={styles.headerContent}>
-                        <TouchableOpacity
-                            // onPress={() => navigation.openDrawer()}
-                            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                            style={styles.iconButton}
-                        >
-                            <Bars3CenterLeftIcon
-                                size={28}
-                                strokeWidth={2}
-                                color={theme.colors.text}
-                            />
-                        </TouchableOpacity>
+                <View style={styles.headerContent}>
+                    <TouchableOpacity
+                        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                    >
+                        <Bars3CenterLeftIcon
+                            size={28}
+                            strokeWidth={2}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
 
-                        <Text style={[styles.logo, { color: theme.colors.text }]}>
-                            <Text style={{ color: theme.colors.primary }}>M</Text>
-                            FLIX
-                        </Text>
+                    <Text style={[styles.logo, { color: theme.colors.text }]}>
+                        <Text style={{ color: theme.colors.primary }}>M</Text>
+                        FLIX
+                    </Text>
 
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate("Search")}
-                            style={styles.iconButton}
-                        >
-                            <MagnifyingGlassIcon
-                                size={28}
-                                strokeWidth={2}
-                                color={theme.colors.text}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("Search")}
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                    >
+                        <MagnifyingGlassIcon
+                            size={28}
+                            strokeWidth={2}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                </View>
             </Animated.View>
 
             {/* CONTENT */}
             <Animated.ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingTop: HEADER_TOTAL + 16 },
+                ]}
                 style={{
                     opacity: fadeAnim,
                     transform: [{ translateY: contentY }],
                 }}
             >
-                <MovieList
-                    title="Movies"
-                    data={movies}
-                    hideSeeAll={true}
-                />
+                {/* TRENDING */}
+                {trending.length > 0 && (
+                    <View style={styles.section}>
+                        <MovieList title="Trending" data={trending.slice(0, 10)} hideSeeAll={true} />
+                    </View>
+                )}
+
+                {/* RECENTLY */}
+                {recentlySeen.length > 0 && (
+                    <View style={styles.section}>
+                        <MovieList title="Recently Seen" data={recentlySeen.slice(0, 10)} hideSeeAll={true} />
+                    </View>
+                )}
+
+                {/* RECOMMENDED */}
+                {recommendedMovies.length > 0 && (
+                    <View style={styles.section}>
+                        <MovieList title="Recommended for You" data={recommendedMovies.slice(0, 10)} hideSeeAll={true} />
+                    </View>
+                )}
+
+                {/* UPCOMING */}
+                {upcoming.length > 0 && (
+                    <View style={styles.section}>
+                        <MovieList title="Upcoming Movies" data={upcoming.slice(0, 10)} hideSeeAll={true} />
+                    </View>
+                )}
+
+                {/* TOP RATED */}
+                {topRated.length > 0 && (
+                    <View style={styles.section}>
+                        <MovieList title="Top Rated Movies" data={topRated.slice(0, 10)} hideSeeAll={true} />
+                    </View>
+                )}
             </Animated.ScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    safeArea: {
-        zIndex: 10,
-    },
+    container: { flex: 1 },
     header: {
         position: "absolute",
         top: 0,
@@ -617,11 +387,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         letterSpacing: 1,
     },
-    iconButton: {
-        padding: 8,
-    },
-    scrollContent: {
-        paddingTop: HEADER_HEIGHT + 16,
-        paddingBottom: 30,
-    },
+    iconButton: { padding: 8 },
+    scrollContent: { paddingBottom: 30 },
+    section: { marginBottom: 24 },
 });
