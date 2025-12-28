@@ -5,24 +5,19 @@ const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
-// const mapMovie = (movie) => ({
-//     _id: movie._id,
-//     title: movie.title,
-//     genres: movie.genres,
-//     releaseDate: movie.releaseDate,
-
-//     posterUrl: `${BASE_URL}/uploads/posters/${movie.poster}`,
-// });
 const mapMovie = (movie) => ({
   _id: movie._id,
   title: movie.title,
-  overview: movie.overview,          // nếu FE cần mô tả
+  overview: movie.overview,          
   genres: movie.genres,
   releaseDate: movie.releaseDate,
   runtime: movie.runtime,
   status: movie.status,
   voteAverage: movie.voteAverage,
   popularity: movie.popularity,
+
+  viewCount: movie.viewCount ?? 0,
+  lastViewedAt: movie.lastViewedAt ?? null,
 
   posterUrl: movie.poster
     ? `${BASE_URL}/uploads/posters/${movie.poster}`
@@ -51,6 +46,32 @@ router.get("/search", async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: "Server error" });
     }
+});
+
+router.post("/:id/view", async (req, res) => {
+  try {
+    const movie = await Movie.findByIdAndUpdate(
+      req.params.id,
+      {
+        $inc: { viewCount: 1 },
+        $set: { lastViewedAt: new Date() },
+      },
+      { new: true } // trả về movie sau update
+    );
+
+    if (!movie) {
+      return res.status(404).json({ message: "Movie not found" });
+    }
+
+    // trả viewCount mới + movie (tuỳ bạn)
+    return res.json({
+      message: "View increased",
+      viewCount: movie.viewCount,
+      movie: mapMovie(movie),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
 // GET detail

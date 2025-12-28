@@ -28,6 +28,8 @@ const moviesData = [
     status: "Released",
     voteAverage: 8.8,
     popularity: 90,
+    viewCount: 0,
+  lastViewedAt: null,
     genres: ["Action", "Sci-Fi"]
   },
   {
@@ -40,6 +42,8 @@ const moviesData = [
     status: "Released",
     voteAverage: 8.6,
     popularity: 88,
+    viewCount: 0,
+    lastViewedAt: null,
     genres: ["Adventure", "Drama", "Sci-Fi"]
   },
   {
@@ -52,6 +56,8 @@ const moviesData = [
     status: "Released",
     voteAverage: 9.0,
     popularity: 95,
+    viewCount: 0,
+    lastViewedAt: null,
     genres: ["Action", "Drama"]
   },
   {
@@ -64,6 +70,8 @@ const moviesData = [
   status: "Released",
   voteAverage: 7.8,
   popularity: 85,
+  viewCount: 0,
+  lastViewedAt: null,
   genres: ["Action", "Adventure", "Sci-Fi"]
   }
 ];

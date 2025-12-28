@@ -4,30 +4,57 @@ const auth = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// GET
+const getUserId = (req) => req.user?.userId || req.user?.id || req.user?._id;
+
+// GET /api/recently-seen?limit=10
 router.get("/", auth, async (req, res) => {
-  const list = await RecentlySeen.find({ userId: req.user.userId })
-    .populate("movieId")
-    .sort({ createdAt: -1 })
-    .limit(10);
-  res.json(list);
+  try {
+    const userId = req.user?.userId || req.user?._id || req.user?.id;
+    const limit = Math.min(Number(req.query.limit || 10), 50);
+
+    const list = await RecentlySeen.find({ userId })
+      .populate("movieId")
+      .sort({ viewedAt: -1 })
+      .limit(limit);
+
+    // flatten -> trả về đúng shape y như /movies
+    const movies = list
+      .filter((x) => x.movieId)
+      .map((x) => ({
+        ...x.movieId.toObject(),
+        viewedAt: x.viewedAt,
+      }));
+
+    res.json(movies);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
 
-// ADD
+
+// POST /api/recently-seen  body: { movieId }
 router.post("/", auth, async (req, res) => {
-  const { movieId } = req.body;
+  try {
+    const userId = getUserId(req);
+    const { movieId } = req.body;
 
-  await RecentlySeen.findOneAndDelete({
-    userId: req.user.userId,
-    movieId
-  });
+    console.log("POST /recently-seen", { userId, movieId, user: req.user });
 
-  const seen = await RecentlySeen.create({
-    userId: req.user.userId,
-    movieId
-  });
+    if (!userId) return res.status(401).json({ message: "Unauthorized: missing userId in token" });
+    if (!movieId) return res.status(400).json({ message: "movieId is required" });
 
-  res.json(seen);
+    // Upsert: click lại thì update viewedAt, không tạo trùng
+    const seen = await RecentlySeen.findOneAndUpdate(
+      { userId, movieId },
+      { $set: { viewedAt: new Date() } },
+      { upsert: true, new: true }
+    );
+
+    res.json(seen);
+  } catch (err) {
+    console.log("POST /recently-seen error:", err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;

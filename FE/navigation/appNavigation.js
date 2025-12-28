@@ -10,6 +10,7 @@ import MovieScreen from "../screens/MovieScreen";
 import TrailerScreen from "../screens/TrailerScreen";
 import DrawerNavigator from "./DrawerNavigator";
 import RegisterScreen from "../screens/RegisterScreen";
+import SearchScreen from "../screens/SearchScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -40,6 +41,11 @@ export default function AppNavigation() {
                         name="Trailer"
                         component={TrailerScreen}
                         options={{ animation: "fade" }}
+                    />
+                    <Stack.Screen
+                        name="Search"
+                        component={SearchScreen}
+                        options={{ animation: "slide_from_bottom" }}
                     />
                 </Stack.Navigator>
             ) : (

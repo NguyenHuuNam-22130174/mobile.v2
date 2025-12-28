@@ -30,7 +30,8 @@ export default function MovieList({ title, hideSeeAll, data }) {
             >
                 {data.map((item) => (
                     <TouchableWithoutFeedback
-                        key={item._id}
+                        // key={item._id}
+                        key={String(item?._id ?? item?.id ?? `${item?.title}-${item?.releaseDate}`)}
                         onPress={() => navigation.push("Movie", item)}
                     >
                         <View style={{ marginRight: 16 }}>

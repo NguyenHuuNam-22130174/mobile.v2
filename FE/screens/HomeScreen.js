@@ -20,6 +20,8 @@ import { useTheme } from "../components/context/ThemeContext";
 import { API } from "../api/api"; // axios client
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import TrendingMovies from "../components/trendingMovies";
+
 
 const ios = Platform.OS === "ios";
 const HEADER_HEIGHT = ios ? 60 : 70;
@@ -112,7 +114,7 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
     const HEADER_TOTAL = HEADER_HEIGHT + (insets?.top || 0);
 
-    // DATA states (giống code cũ)
+    // DATA states 
     const [trending, setTrending] = useState([]);
     const [upcoming, setUpcoming] = useState([]);
     const [topRated, setTopRated] = useState([]);
@@ -134,7 +136,7 @@ export default function HomeScreen() {
         startAnimations();
     }, []);
 
-    // mỗi lần quay lại Home -> reload recently + recommend (giống code cũ)
+    // mỗi lần quay lại Home -> reload recently + recommend
     useFocusEffect(
         useCallback(() => {
             const run = async () => {
@@ -156,7 +158,7 @@ export default function HomeScreen() {
 
             setAllMovies(list);
 
-            // ====== client-side phân loại như code cũ ======
+            // ====== client-side phân loại ======
             const now = new Date();
 
             // Upcoming: releaseDate > hiện tại (nếu field có)
@@ -171,11 +173,18 @@ export default function HomeScreen() {
             const top = [...list].sort((a, b) => getMovieScore(b) - getMovieScore(a));
 
             // Trending: nếu có popularity/views thì tự sort; nếu không thì lấy top list
-            const trend = [...list].sort((a, b) => {
-                const sb = (b?.popularity ?? b?.views ?? getMovieScore(b));
-                const sa = (a?.popularity ?? a?.views ?? getMovieScore(a));
-                return sb - sa;
-            });
+            const trend = [...list]
+                .sort((a, b) => {
+                    const vb = b?.viewCount ?? 0;
+                    const va = a?.viewCount ?? 0;
+                    if (vb !== va) return vb - va;
+
+                    const tb = b?.lastViewedAt ? new Date(b.lastViewedAt).getTime() : 0;
+                    const ta = a?.lastViewedAt ? new Date(a.lastViewedAt).getTime() : 0;
+                    return tb - ta;
+                })
+                .slice(0, 10);
+            setTrending(trend);
 
             setUpcoming(up);
             setTopRated(top);
@@ -189,20 +198,31 @@ export default function HomeScreen() {
 
     const loadRecentlySeen = async () => {
         try {
-            const data = await AsyncStorage.getItem(RECENTLY_KEY);
-            const parsed = data ? JSON.parse(data) : [];
-            const safeList = Array.isArray(parsed) ? parsed : [];
+            const res = await API.get("/recently-seen?limit=10");
 
-            const cleaned = uniqueByKey(safeList);
-            setRecentlySeen(cleaned);
+            const raw = Array.isArray(res.data) ? res.data : [];
 
-            if (cleaned.length !== safeList.length) {
-                await AsyncStorage.setItem(RECENTLY_KEY, JSON.stringify(cleaned));
-            }
+            // lấy movie object từ movieId
+            const movies = raw
+                .map((x) => x.movieId)
+                .filter(Boolean)
+                .map((m) => {
+                    // tạo posterUrl nếu backend chỉ trả filename "poster"
+                    const serverBase = API.defaults.baseURL?.replace("/api", ""); // http://10.0.2.2:5000
+                    const posterUrl =
+                        m.posterUrl ||
+                        (m.poster ? `${serverBase}/uploads/posters/${m.poster}` : "");
 
-            return cleaned;
+                    return { ...m, posterUrl };
+                });
+
+            setRecentlySeen(movies);
+            return movies;
         } catch (error) {
-            console.error("Error loading recently seen movies:", error);
+            console.error(
+                "Error loading recently seen movies:",
+                error?.response?.data || error?.message
+            );
             setRecentlySeen([]);
             return [];
         }
@@ -259,6 +279,21 @@ export default function HomeScreen() {
                 useNativeDriver: true,
             }),
         ]).start();
+    };
+
+    const handleOpenMovie = async (movie) => {
+        try {
+            if (movie?._id) {
+                await Promise.allSettled([
+                    API.post(`/movies/${movie._id}/view`),
+                    API.post(`/recently-seen`, { movieId: movie._id }), // lưu DB
+                ]);
+            }
+        } catch (e) {
+            console.log("view/recently error:", e?.response?.data || e?.message);
+        } finally {
+            navigation.navigate("Movie", movie);
+        }
     };
 
     if (loading) return <Loading />;
@@ -324,9 +359,10 @@ export default function HomeScreen() {
             >
                 {/* TRENDING */}
                 {trending.length > 0 && (
-                    <View style={styles.section}>
-                        <MovieList title="Trending" data={trending.slice(0, 10)} hideSeeAll={true} />
-                    </View>
+                    <TrendingMovies
+                        data={trending.slice(0, 10)}
+                        onPressItem={handleOpenMovie}
+                    />
                 )}
 
                 {/* RECENTLY */}
