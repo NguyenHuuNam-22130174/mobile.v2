@@ -1,17 +1,27 @@
 const mongoose = require("mongoose");
+const { Schema } = mongoose
+
+const CastSchema = new Schema(
+  {
+    person: { type: Schema.Types.ObjectId, ref: "Person", required: true },
+    character: String,
+    order: Number,
+  },
+  { _id: false }
+);
 
 const MovieSchema = new mongoose.Schema({
     title: String,
     overview: String,
 
-    // 🔥 BẮT BUỘC
+    // BẮT BUỘC
     poster: {
         type: String, // chỉ lưu tên file
         required: true,
     },
 
     videoUrl: {
-    type: String,   // 🔥 LINK PHIM
+    type: String,   // LINK PHIM
     required: false,
     },
 
@@ -32,6 +42,9 @@ const MovieSchema = new mongoose.Schema({
             name: String,
         },
     ],
+
+    director: { type: Schema.Types.ObjectId, ref: "Person", default: null },
+    cast: { type: [CastSchema], default: [] },
 });
 
 module.exports = mongoose.model("Movie", MovieSchema);

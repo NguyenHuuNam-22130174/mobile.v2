@@ -33,10 +33,30 @@ export const fetchMovieDetails = async (id) => {
 };
 
 // ===== STUBS (để app không crash) =====
-export const fetchMovieCredits = async () => ({ cast: [] });
+// export const fetchMovieCredits = async () => ({ cast: [] });
 export const fetchSimilarMovies = async () => ({ results: [] });
-export const fetchPersonDetails = async () => ({});
-export const fetchPersonMovies = async () => ({ cast: [] });
+// export const fetchPersonDetails = async () => ({});
+// export const fetchPersonMovies = async () => ({ cast: [] });
+
+// ===== MOVIE CREDITS (director + cast) =====
+export const fetchMovieCredits = async (id) => {
+  const res = await API.get(`/movies/${id}/credits`);
+  // res.data: { director, cast }
+  return res.data;
+};
+
+// ===== PERSON DETAIL =====
+export const fetchPersonDetails = async (id) => {
+  const res = await API.get(`/person/${id}`);
+  return res.data;
+};
+
+// ===== PERSON MOVIES =====
+// cần backend có GET /api/person/:id/movies (mình hướng dẫn ở mục 4)
+export const fetchPersonMovies = async (id) => {
+  const res = await API.get(`/person/${id}/movies`);
+  return { results: res.data }; // tuỳ bạn dùng key gì ở UI
+};
 
 // ===== TRAILER MAP (giữ nguyên) =====
 export const trailerVideoMap = {};
