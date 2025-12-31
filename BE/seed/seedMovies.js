@@ -25,21 +25,21 @@ const personsData = [
   { name: "James Cameron", knownForDepartment: "Directing", popularity: 96 },
 
   // Inception cast
-  { name: "Leonardo DiCaprio", knownForDepartment: "Acting", popularity: 90 },
-  { name: "Joseph Gordon-Levitt", knownForDepartment: "Acting", popularity: 80 },
-  { name: "Elliot Page", knownForDepartment: "Acting", popularity: 78 },
-  { name: "Tom Hardy", knownForDepartment: "Acting", popularity: 85 },
+  { name: "Leonardo DiCaprio", knownForDepartment: "Acting", popularity: 90, profileUrl: "leonardo-dicaprio.jpg" },
+  { name: "Joseph Gordon-Levitt", knownForDepartment: "Acting", popularity: 80, profileUrl: "joseph-gordon-levitt.jpg" },
+  { name: "Elliot Page", knownForDepartment: "Acting", popularity: 78, profileUrl: "elliot-page.jpg" },
+  { name: "Tom Hardy", knownForDepartment: "Acting", popularity: 85, profileUrl: "tom-hardy.jpg" },
 
   // Interstellar cast
-  { name: "Matthew McConaughey", knownForDepartment: "Acting", popularity: 86 },
-  { name: "Anne Hathaway", knownForDepartment: "Acting", popularity: 84 },
-  { name: "Jessica Chastain", knownForDepartment: "Acting", popularity: 82 },
-  { name: "Michael Caine", knownForDepartment: "Acting", popularity: 88 },
+  { name: "Matthew McConaughey", knownForDepartment: "Acting", popularity: 86, profileUrl: "matthew-mcconaughey.jpg" },
+  { name: "Anne Hathaway", knownForDepartment: "Acting", popularity: 84, profileUrl: "anne-hathaway.jpg" },
+  { name: "Jessica Chastain", knownForDepartment: "Acting", popularity: 82, profileUrl: "jessica-chastain.jpg" },
+  { name: "Michael Caine", knownForDepartment: "Acting", popularity: 88, profileUrl: "michael-caine.jpg" },
 
   // Dark Knight cast
-  { name: "Christian Bale", knownForDepartment: "Acting", popularity: 85 },
-  { name: "Heath Ledger", knownForDepartment: "Acting", popularity: 90 },
-  { name: "Gary Oldman", knownForDepartment: "Acting", popularity: 80 },
+  { name: "Christian Bale", knownForDepartment: "Acting", popularity: 85, profileUrl: "christian-bale.jpg" },
+  { name: "Heath Ledger", knownForDepartment: "Acting", popularity: 90, profileUrl: "heath-ledger.jpg" },
+  { name: "Gary Oldman", knownForDepartment: "Acting", popularity: 80, profileUrl: "gary-oldman.jpg" },
 
   // Avatar 2 cast
   { name: "Sam Worthington", knownForDepartment: "Acting", popularity: 75, profileUrl: "sam-worthington.jpg" },
@@ -72,6 +72,7 @@ const moviesData = [
       { name: "Elliot Page", character: "Ariadne", order: 2 },
       { name: "Tom Hardy", character: "Eames", order: 3 },
     ],
+    productionCountries: [{ code: "US", name: "United States" }],
   },
   {
     title: "Interstellar",
@@ -94,6 +95,7 @@ const moviesData = [
       { name: "Jessica Chastain", character: "Murph", order: 2 },
       { name: "Michael Caine", character: "Professor Brand", order: 3 },
     ],
+    productionCountries: [{ code: "US", name: "United States" }],
   },
   {
     title: "The Dark Knight",
@@ -115,6 +117,7 @@ const moviesData = [
       { name: "Heath Ledger", character: "Joker", order: 1 },
       { name: "Gary Oldman", character: "Commissioner Gordon", order: 2 },
     ],
+    productionCountries: [{ code: "US", name: "United States" }],
   },
   {
     title: "Avatar 2",
@@ -136,6 +139,7 @@ const moviesData = [
       { name: "Zoe Saldana", character: "Neytiri", order: 1 },
       { name: "Sigourney Weaver", character: "Kiri", order: 2 },
     ],
+    productionCountries: [{ code: "US", name: "United States" }],
   },
 ];
 // =================================================
@@ -210,6 +214,7 @@ async function seed() {
         //credits
         director: directorId,
         cast: castArr,
+        productionCountries: movie.productionCountries || [],
       };
     });
 

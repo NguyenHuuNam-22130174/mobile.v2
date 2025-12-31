@@ -423,6 +423,22 @@ export default function MovieScreen() {
 
         <Text className="text-neutral-400 mx-4 tracking-wide">{movie.overview || "No description"}</Text>
 
+        {/* COUNTRY */}
+        <View className="mx-4 mt-2">
+          <Text className="text-white text-lg font-semibold mb-2">Quốc gia</Text>
+
+          {Array.isArray(movie?.productionCountries) && movie.productionCountries.length > 0 ? (
+            <Text className="text-neutral-300">
+              {movie.productionCountries
+                .map((c) => (typeof c === "string" ? c : c?.name || c?.code))
+                .filter(Boolean)
+                .join(", ")}
+            </Text>
+          ) : (
+            <Text className="text-neutral-500">Chưa có dữ liệu quốc gia</Text>
+          )}
+        </View>
+
         {/* DIRECTOR */}
         <View className="mx-4 mt-4">
           <Text className="text-white text-lg font-semibold mb-2">Đạo diễn</Text>
@@ -453,7 +469,7 @@ export default function MovieScreen() {
 
                 return (
                   <View key={key} className="mr-3" style={{ width: 120 }}>
-                    <Image source={{ uri: avatar }} style={{ width: 110, height: 160, borderRadius: 12 }} />
+                    <Image source={{ uri: avatar }} style={{ width: 80, height: 80, borderRadius: 40 }} />
                     <Text className="text-neutral-200 mt-2" numberOfLines={1}>{name}</Text>
 
                     {!!c?.character && (

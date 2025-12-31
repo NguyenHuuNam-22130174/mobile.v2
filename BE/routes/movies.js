@@ -52,6 +52,7 @@ const mapMovie = (movie) => ({
         order: c.order ?? 0,
       }))
     : [],
+  productionCountries: movie.productionCountries || [],
 });
 // GET all movies
 router.get("/", async (req, res) => {

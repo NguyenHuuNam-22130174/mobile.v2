@@ -45,6 +45,15 @@ const MovieSchema = new mongoose.Schema({
 
     director: { type: Schema.Types.ObjectId, ref: "Person", default: null },
     cast: { type: [CastSchema], default: [] },
+    productionCountries: {
+        type: [
+            {
+                code: { type: String }, // ví dụ "US", "GB", "VN"
+                name: { type: String }, // ví dụ "United States"
+            },
+        ],
+        default: [],
+    },
 });
 
 module.exports = mongoose.model("Movie", MovieSchema);
