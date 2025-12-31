@@ -149,12 +149,12 @@ export default function HomeScreen() {
 
     const loadData = async () => {
         try {
-            console.log("📡 CALL API: /api/movies");
+            console.log("CALL API: /api/movies");
             const res = await API.get("/movies");
             const list = Array.isArray(res.data) ? res.data : [];
 
-            console.log("✅ API RESPONSE STATUS:", res.status);
-            console.log("📦 MOVIES DATA:", list);
+            console.log("API RESPONSE STATUS:", res.status);
+            console.log("MOVIES DATA:", list);
 
             setAllMovies(list);
 
@@ -190,7 +190,7 @@ export default function HomeScreen() {
             setTopRated(top);
             setTrending(trend);
         } catch (err) {
-            console.log("❌ FETCH MOVIES ERROR:", err?.message);
+            console.log("FETCH MOVIES ERROR:", err?.message);
         } finally {
             setLoading(false);
         }
@@ -200,29 +200,32 @@ export default function HomeScreen() {
         try {
             const res = await API.get("/recently-seen?limit=10");
 
-            const raw = Array.isArray(res.data) ? res.data : [];
+            // nhận cả: array / {items: array} / {data: array}
+            const raw = Array.isArray(res.data)
+                ? res.data
+                : Array.isArray(res.data?.items)
+                    ? res.data.items
+                    : Array.isArray(res.data?.data)
+                        ? res.data.data
+                        : [];
 
-            // lấy movie object từ movieId
+            // nhận cả: x.movieId (populate) / x.movie / hoặc x chính là movie object
             const movies = raw
-                .map((x) => x.movieId)
-                .filter(Boolean)
-                .map((m) => {
-                    // tạo posterUrl nếu backend chỉ trả filename "poster"
-                    const serverBase = API.defaults.baseURL?.replace("/api", ""); // http://10.0.2.2:5000
-                    const posterUrl =
-                        m.posterUrl ||
-                        (m.poster ? `${serverBase}/uploads/posters/${m.poster}` : "");
+                .map((x) => x?.movieId || x?.movie || x)
+                .filter((m) => m && (m._id || m.id || m.title));
 
-                    return { ...m, posterUrl };
-                });
+            // chuẩn hoá posterUrl
+            const serverBase = API.defaults.baseURL?.replace("/api", "");
+            const withPoster = movies.map((m) => {
+                const posterUrl =
+                    m.posterUrl || (m.poster ? `${serverBase}/uploads/posters/${m.poster}` : "");
+                return { ...m, posterUrl };
+            });
 
-            setRecentlySeen(movies);
-            return movies;
+            setRecentlySeen(withPoster);
+            return withPoster;
         } catch (error) {
-            console.error(
-                "Error loading recently seen movies:",
-                error?.response?.data || error?.message
-            );
+            console.error("Error loading recently seen movies:", error?.response?.data || error?.message);
             setRecentlySeen([]);
             return [];
         }
