@@ -103,19 +103,6 @@ router.post("/:id/view", async (req, res) => {
   }
 });
 
-// GET detail
-// router.get("/:id", async (req, res) => {
-//     try {
-//         const movie = await Movie.findById(req.params.id);
-//         if (!movie) {
-//             return res.status(404).json({ message: "Movie not found" });
-//         }
-//         res.json(mapMovie(movie));
-//     } catch (err) {
-//         res.status(500).json({ message: "Server error" });
-//     }
-// });
-
 // GET credits (director + cast)
 router.get("/:id/credits", async (req, res) => {
   try {

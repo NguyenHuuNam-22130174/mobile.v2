@@ -32,11 +32,128 @@ export const fetchMovieDetails = async (id) => {
   return res.data;
 };
 
-// ===== STUBS (để app không crash) =====
-// export const fetchMovieCredits = async () => ({ cast: [] });
-export const fetchSimilarMovies = async () => ({ results: [] });
-// export const fetchPersonDetails = async () => ({});
-// export const fetchPersonMovies = async () => ({ cast: [] });
+const API_BASE_URL = "http://10.0.2.2:5000"; 
+
+const apiGet = async (path) => {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`GET ${path} failed: ${res.status} ${txt}`);
+  }
+  return res.json();
+};
+
+const isObjectId = (s) => typeof s === "string" && /^[a-f\d]{24}$/i.test(s);
+
+const extractGenreTokens = (genres) => {
+  const ids = new Set();
+  const names = new Set();
+
+  if (!Array.isArray(genres)) return { ids, names };
+
+  for (const g of genres) {
+    if (!g) continue;
+
+    // genres là string (có thể là objectId hoặc tên)
+    if (typeof g === "string") {
+      const v = g.trim();
+      if (!v) continue;
+      if (isObjectId(v)) ids.add(v);
+      else names.add(v.toLowerCase());
+      continue;
+    }
+
+    // genres là object
+    if (typeof g === "object") {
+      const id = (g._id || g.id || "").toString().trim();
+      const name = (g.name || g.title || "").toString().trim();
+
+      if (id) ids.add(id);
+      if (name) names.add(name.toLowerCase());
+    }
+  }
+
+  return { ids, names };
+};
+
+const intersectCount = (a, b) => {
+  let c = 0;
+  for (const x of a) if (b.has(x)) c++;
+  return c;
+};
+
+/**
+ * Fetch danh sách phim tương tự dựa trên `movieId`.
+ *
+ * Cách hoạt động:
+ * - Lấy chi tiết phim hiện tại: GET `/api/movies/:id`
+ * - Lấy danh sách tất cả phim: GET `/api/movies`
+ * - Tính “độ tương tự” dựa trên thể loại (genres):
+ *   + Ưu tiên so khớp theo Genre ID (khi list trả về genres dạng ObjectId).
+ *   + Nếu không có ID thì fallback so theo tên Genre (name).
+ * - Sắp xếp theo:
+ *   1) số lượng genre trùng nhau (giảm dần)
+ *   2) độ phổ biến phụ (viewCount hoặc popularity) (giảm dần)
+ * - Trả về tối đa `limit` phim, không bao gồm phim hiện tại.
+ *
+ * Yêu cầu:
+ * - `apiGet(path)` phải tồn tại và trả về JSON.
+ * - Có helper: `extractGenreTokens(genres)` và `intersectCount(setA, setB)`.
+ *
+ * @param {string} movieId - ID của phim hiện tại (Mongo _id hoặc id).
+ * @param {number} [limit=10] - Số lượng phim tương tự tối đa cần lấy.
+ *
+ * @returns {Promise<{ results: Array<Object> }>} 
+ * Trả về object chứa mảng `results` (mỗi phần tử là movie object).
+ * Luôn trả `{ results: [] }` nếu không có dữ liệu hoặc có lỗi.
+ */
+export const fetchSimilarMovies = async (movieId, limit = 10) => {
+  try {
+    if (!movieId) return { results: [] };
+
+    const [detail, all] = await Promise.all([
+      apiGet(`/api/movies/${movieId}`),
+      apiGet(`/api/movies`),
+    ]);
+
+    const cur = extractGenreTokens(detail?.genres);
+
+    if ((!cur.ids.size && !cur.names.size) || !Array.isArray(all)) {
+      return { results: [] };
+    }
+
+    const results = all
+      .filter((m) => {
+        const id = (m?._id || m?.id || "").toString();
+        return id && id !== movieId;
+      })
+      .map((m) => {
+        const tok = extractGenreTokens(m?.genres);
+
+        // ưu tiên match theo ID; nếu list không populate thì ID sẽ match được
+        const commonById = intersectCount(cur.ids, tok.ids);
+        const commonByName = intersectCount(cur.names, tok.names);
+        const score = Math.max(commonById, commonByName);
+
+        const popularity = (m?.viewCount ?? m?.popularity ?? 0) || 0;
+        return { movie: m, score, popularity };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => (b.score - a.score) || (b.popularity - a.popularity))
+      .slice(0, limit)
+      .map((x) => ({ ...x.movie, id: x.movie.id || x.movie._id }));
+
+    console.log("similar results =", results.length);
+    return { results };
+  } catch (e) {
+    console.log("fetchSimilarMovies error:", e?.message || e);
+    return { results: [] };
+  }
+};
 
 // ===== MOVIE CREDITS (director + cast) =====
 export const fetchMovieCredits = async (id) => {
