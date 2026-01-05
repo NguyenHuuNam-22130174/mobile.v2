@@ -17,6 +17,7 @@ app.use("/api/movies", require("./routes/movies"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/recently-seen", require("./routes/recentlySeen"));
 app.use("/api/person", require("./routes/person"));
+app.use("/api/ratings", require("./routes/rating"));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {

@@ -33,7 +33,9 @@ const mapMovie = (movie) => ({
   releaseDate: movie.releaseDate,
   runtime: movie.runtime,
   status: movie.status,
-  voteAverage: movie.voteAverage,
+  // voteAverage: movie.voteAverage,
+  voteAverage: movie.voteAverage ?? 0,
+  voteCount: movie.voteCount ?? 0,
   popularity: movie.popularity,
 
   viewCount: movie.viewCount ?? 0,

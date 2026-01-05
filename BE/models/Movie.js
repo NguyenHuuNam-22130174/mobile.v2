@@ -28,7 +28,9 @@ const MovieSchema = new mongoose.Schema({
     releaseDate: Date,
     runtime: Number,
     status: String,
-    voteAverage: Number,
+    ratingSum: { type: Number, default: 0 },
+    voteAverage: { type: Number, default: 0, min: 0, max: 10 },
+    voteCount: { type: Number, default: 0, min: 0 },
     popularity: Number,
     viewCount: { type: Number, default: 0 },       // tổng lượt click/xem
     lastViewedAt: { type: Date, default: null },

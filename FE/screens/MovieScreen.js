@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View, Text, Image, Dimensions, TouchableOpacity,
-  ScrollView, Platform,
+  ScrollView, Platform, TextInput,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { styles, theme } from "../theme";
 import Loading from "../components/loading";
-import { fetchMovieDetails, fetchMovieCredits, fallbackPersonImage, fetchSimilarMovies } from "../api/moviedb";
+import { fetchMovieDetails, fetchMovieCredits, fallbackPersonImage, fetchSimilarMovies, postRating } from "../api/moviedb";
 
 const ios = Platform.OS === "ios";
 const topMargin = ios ? "" : " mt-3";
@@ -28,14 +28,124 @@ const getYoutubeId = (url) => {
 export default function MovieScreen() {
   const route = useRoute();
   const navigation = useNavigation();
+  const params = route?.params ?? {};
 
-  const initialMovie = route?.params || {};
-  const movieId = initialMovie?._id || initialMovie?.id;
+  const initialMovie = useMemo(() => {
+    return params && typeof params === "object" ? params : {};
+  }, [params]);
+
+  const movieId = useMemo(() => {
+    const id = params?._id ?? params?.id ?? params?.movieId;
+    return id ? String(id) : "";
+  }, [params]);
 
   const [movie, setMovie] = useState(initialMovie);
   const [isFavourite, setIsFavourite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [similarMovies, setSimilarMovies] = useState([]);
+  const [hasRated, setHasRated] = useState(false);
+
+  const [myRating, setMyRating] = useState(10);     // 1..10
+  const [myReview, setMyReview] = useState("");   // optional
+  const [submitting, setSubmitting] = useState(false);
+
+  const RATINGS_KEY = "ratings_local";
+
+  const FIVE_MILESTONES = [
+    { value: 2, label: "Dở tệ", emoji: "😭" },
+    { value: 4, label: "Phim chán", emoji: "😕" },
+    { value: 6, label: "Khá ổn", emoji: "🙂" },
+    { value: 8, label: "Phim hay", emoji: "😊" },
+    { value: 10, label: "Tuyệt vời", emoji: "😍" },
+  ];
+
+  const getMilestoneLabel = (v) =>
+    FIVE_MILESTONES.find((x) => x.value === v)?.label || "";
+
+  const FiveMilestoneTenPicker = ({
+    value,
+    onChange,
+    activeColor = "#ef4444",
+    disabled = false,
+  }) => {
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingVertical: 10,
+          paddingHorizontal: 10,
+          borderRadius: 16,
+          backgroundColor: "#111827",
+          borderWidth: 1,
+          borderColor: "#1f2937",
+          opacity: disabled ? 0.7 : 1, // nhìn như bị khóa
+        }}
+      >
+        {FIVE_MILESTONES.map((m) => {
+          const active = m.value === value;
+
+          return (
+            <TouchableOpacity
+              key={m.value}
+              disabled={disabled} // chặn bấm
+              onPress={() => {
+                if (disabled) return; // chặn chắc
+                onChange(m.value);
+              }}
+              style={{ alignItems: "center", width: "18%" }}
+              activeOpacity={disabled ? 1 : 0.85} // bị khóa thì không “nhấp nháy”
+            >
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: active ? activeColor : "#6b7280",
+                  backgroundColor: active
+                    ? "rgba(239,68,68,0.12)"
+                    : "rgba(255,255,255,0.04)",
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>{m.emoji}</Text>
+              </View>
+
+              <Text
+                numberOfLines={1}
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: active ? "white" : "#d1d5db",
+                  fontWeight: active ? "700" : "500",
+                  textAlign: "center",
+                }}
+              >
+                {m.label}
+              </Text>
+
+              <Text style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>
+                {m.value}/10
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  //   useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       await AsyncStorage.removeItem(RATINGS_KEY);
+  //       console.log("✅ Cleared all local ratings:", RATINGS_KEY);
+  //     } catch (e) {
+  //       console.log("❌ Clear all local ratings error:", e);
+  //     }
+  //   })();
+  // }, []);
 
   // 1) Fetch movie detail + credits
   useEffect(() => {
@@ -52,7 +162,11 @@ export default function MovieScreen() {
 
         // detail
         const detail = await fetchMovieDetails(movieId);
-        if (!cancelled && detail) setMovie((prev) => ({ ...prev, ...detail }));
+        if (!cancelled && detail) setMovie((prev) => ({ 
+          ...prev, 
+          ...detail, 
+          voteAverage: detail?.voteAverage ?? prev?.voteAverage,
+          voteCount: detail?.voteCount ?? prev?.voteCount,}));
 
         // credits (director + cast)
         const credits = await fetchMovieCredits(movieId);
@@ -109,6 +223,20 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
+  useEffect(() => {
+    setMovie(initialMovie);
+  }, [initialMovie]);
+
+  useEffect(() => {
+
+    // reset 
+    setHasRated(false);
+    setMyRating(10);
+    setMyReview("");
+
+    // load khi movieId hợp lệ
+    if (movieId) loadMyRating(movieId);
+  }, [movieId]);
 
   async function saveToRecentlySeen(movieItem) {
     try {
@@ -129,6 +257,61 @@ export default function MovieScreen() {
     const data = await AsyncStorage.getItem("favorites");
     const list = data ? JSON.parse(data) : [];
     setIsFavourite(list.some((m) => (m?._id || m?.id) === id));
+  }
+
+  async function loadMyRating(id) {
+    try {
+      if (!id) {
+        setHasRated(false);
+        setMyRating(10);
+        setMyReview("");
+        return;
+      }
+
+      const raw = await AsyncStorage.getItem(RATINGS_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      const mine = obj?.[id];
+
+      if (!mine) {
+        setHasRated(false);
+        setMyRating(10);
+        setMyReview("");
+        return;
+      }
+
+      setMyRating(mine?.rating ?? 10);
+      setMyReview(typeof mine?.review === "string" ? mine.review : "");
+
+      const submitted = mine?.submitted === true;
+      setHasRated(submitted);
+
+      console.log("loadMyRating:", { id, mine, submitted, keys: Object.keys(obj) });
+    } catch (e) {
+      console.log("Load my rating error:", e);
+      setHasRated(false);
+      setMyRating(10);
+      setMyReview("");
+    }
+  }
+
+  async function saveMyRating(id, patch) {
+    try {
+      if (!id) return; // chặn lưu vào "undefined"
+
+      const raw = await AsyncStorage.getItem(RATINGS_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      const prev = obj[id] || {};
+
+      obj[id] = {
+        ...prev,
+        ...patch,
+        updatedAt: Date.now(),
+      };
+
+      await AsyncStorage.setItem(RATINGS_KEY, JSON.stringify(obj));
+    } catch (e) {
+      console.log("Save my rating error:", e);
+    }
   }
 
   async function handleToggleFavorite() {
@@ -289,6 +472,110 @@ export default function MovieScreen() {
             <Text className="text-neutral-500">Chưa có phim tương tự</Text>
           )}
         </View>
+
+        {/* RATING (thang 10) */}
+        <View className="mx-4 mt-6" style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#262626" }}>
+          <Text className="text-white text-lg font-semibold mb-2">Đánh giá phim</Text>
+
+          <Text className="text-neutral-300 mb-2">
+            Điểm hiện tại:{" "}
+            <Text className="text-white font-bold">
+              {Number.isFinite(Number(movie?.voteAverage)) ? Number(movie.voteAverage).toFixed(1) : "0.0"}
+            </Text>
+            /10{" "}
+            {movie?.voteCount ? <Text className="text-neutral-500">({movie.voteCount} lượt)</Text> : null}
+          </Text>
+
+          <Text className="text-neutral-400 mb-2">
+            Bạn chấm: <Text className="text-white font-bold">{myRating || 0}</Text>/10{" "}
+            {!!myRating && <Text className="text-neutral-500">({getMilestoneLabel(myRating)})</Text>}
+          </Text>
+
+          <FiveMilestoneTenPicker
+            value={myRating}
+            disabled={hasRated || submitting}   // khóa nếu đã submit
+            activeColor={theme?.background || "#ef4444"}
+            onChange={async (val) => {
+              if (!movieId) return; 
+              setMyRating(val);
+              await saveMyRating(movieId, { rating: val, review: myReview });
+            }}
+          />
+
+          {/* Optional: review */}
+          <View style={{ marginTop: 12 }}>
+            <Text className="text-neutral-400 mb-2">Nhận xét (tuỳ chọn)</Text>
+            <TextInput
+              editable={!hasRated}
+              value={myReview}
+              onChangeText={setMyReview}
+              placeholder="Viết vài dòng cảm nhận..."
+              placeholderTextColor="#737373"
+              multiline
+              style={{
+                minHeight: 70,
+                color: "white",
+                borderWidth: 1,
+                borderColor: "#404040",
+                borderRadius: 12,
+                padding: 10,
+              }}
+              onBlur={async () => {
+                if (!movieId) return;
+                if (hasRated) return;
+                // lưu review khi rời ô nhập
+                await saveMyRating(movieId, { rating: myRating, review: myReview });
+              }}
+            />
+
+            <TouchableOpacity
+              disabled={hasRated}   // khóa nếu đã submit
+              onPress={async () => {
+                if (!movieId || hasRated || submitting) return;
+
+                try {
+                  setSubmitting(true);
+
+                  console.log("POST /api/ratings payload:", { movieId, rating: myRating, review: myReview });
+
+                  const rs = await postRating({
+                    movieId,
+                    rating: myRating,
+                    review: myReview,
+                  });
+
+                  console.log("POST rating response:", rs);
+
+                  // update UI ngay theo summary server
+                  const summary = rs?.summary || {};
+                  setMovie((prev) => ({
+                    ...prev,
+                    voteAverage: summary.avgRating ?? prev.voteAverage,
+                    voteCount: summary.ratingCount ?? prev.voteCount,
+                  }));
+
+                  setHasRated(true);
+
+                  // vẫn lưu local để nhớ trạng thái đã rate
+                  await saveMyRating(movieId, { rating: myRating, review: myReview, submitted: true });
+                } catch (e) {
+                  console.log("Rate error:", e?.message || e);
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              style={{
+                marginTop: 10,
+                paddingVertical: 10,
+                borderRadius: 12,
+                alignItems: "center",
+                backgroundColor: theme?.background || "#ef4444",
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "700" }}>Lưu đánh giá</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {/* TRAILER */}
@@ -304,7 +591,7 @@ export default function MovieScreen() {
         onPress={() => {
           const videoId = getYoutubeId(movie?.videoUrl);
           if (!videoId) {
-            console.log("❌ Phim này chưa có videoUrl:", movie?.title);
+            console.log("Phim này chưa có videoUrl:", movie?.title);
             return;
           }
           navigation.navigate("Trailer", { videoId });

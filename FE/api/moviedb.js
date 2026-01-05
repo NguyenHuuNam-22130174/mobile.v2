@@ -186,3 +186,13 @@ export const fetchMoviesByGenre = async (genreId) => {
   );
   return { results: filtered };
 };
+
+export async function postRating({ movieId, rating, review = "" }) {
+  const res = await API.post("/ratings", { movieId, rating, review });
+  return res.data; // { summary }
+}
+
+export async function fetchRatingSummary(movieId) {
+  const res = await API.get(`/ratings/${movieId}/summary`);
+  return res.data; // { avgRating, ratingCount }
+}
