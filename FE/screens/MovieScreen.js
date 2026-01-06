@@ -25,7 +25,7 @@ import {
   postRating,
   fetchMovieComments,
 
-  // ✅ thêm các API này (tự implement trong ../api/moviedb)
+  // thêm các API này (tự implement trong ../api/moviedb)
   fetchMe,
   getFavoriteStatus,
   toggleFavorite,

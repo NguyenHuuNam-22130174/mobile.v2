@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -9,7 +9,7 @@ import {
     Alert,
     StyleSheet
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchFavorites, deleteFavorite } from "../api/moviedb";
 import { useNavigation } from "@react-navigation/native";
 import { image185 } from "../api/moviedb";
 import { Bars3CenterLeftIcon, XMarkIcon } from "react-native-heroicons/outline";
@@ -21,14 +21,25 @@ export default function FavoriteScreen() {
 
     // Load danh sách yêu thích
     useFocusEffect(
-        React.useCallback(() => {
-          const loadFavorites = async () => {
-            const fav = await AsyncStorage.getItem("favorites");
-            if (fav) setFavorites(JSON.parse(fav));
-          };
-          loadFavorites();
+        useCallback(() => {
+            let alive = true;
+
+            const loadFavorites = async () => {
+                try {
+                    const movies = await fetchFavorites();
+                    if (alive) setFavorites(movies);
+                } catch (e) {
+                    console.log("Load favorites error:", e?.message || e);
+                    if (alive) setFavorites([]);
+                }
+            };
+
+            loadFavorites();
+            return () => {
+                alive = false;
+            };
         }, [])
-      );
+    );
 
     // Hàm xóa phim khỏi danh sách yêu thích
     const removeFavorite = async (movieId) => {
@@ -36,24 +47,21 @@ export default function FavoriteScreen() {
             "Confirm",
             "Are you sure you want to remove this movie from your favorites?",
             [
-                {
-                    text: "Cancel",
-                    style: "cancel"
-                },
+                { text: "Cancel", style: "cancel" },
                 {
                     text: "Confirm",
+                    style: "destructive",
                     onPress: async () => {
-                        const updatedFavorites = favorites.filter(
-                            item => item.id !== movieId
-                        );
-                        await AsyncStorage.setItem(
-                            "favorites",
-                            JSON.stringify(updatedFavorites)
-                        );
-                        setFavorites(updatedFavorites);
+                        try {
+                            await deleteFavorite(movieId);
+                            setFavorites((prev) =>
+                                prev.filter((m) => String(m?._id || m?.id) !== String(movieId))
+                            );
+                        } catch (e) {
+                            console.log("Delete favorite error:", e?.message || e);
+                        }
                     },
-                    style: "destructive"
-                }
+                },
             ]
         );
     };
@@ -70,28 +78,31 @@ export default function FavoriteScreen() {
 
             {/* Danh sách phim */}
             {favorites.length > 0 ? (
-                favorites.map((item) => (
-                    <View key={item.id} style={styles.movieItem}>
-                        <TouchableWithoutFeedback
-                            onPress={() => navigation.navigate("Movie", item)}
-                        >
-                            <View style={styles.movieContent}>
-                                <Image
-                                    source={{ uri: image185(item.poster_path) }}
-                                    style={styles.movieImage}
-                                />
-                                <Text style={styles.movieTitle}>{item.title}</Text>
-                            </View>
-                        </TouchableWithoutFeedback>
-                        
-                        <TouchableOpacity
-                            onPress={() => removeFavorite(item.id)}
-                            style={styles.removeButton}
-                        >
-                            <XMarkIcon size={24} color="red" />
-                        </TouchableOpacity>
-                    </View>
-                ))
+                favorites.map((item) => {
+                    const id = item?._id || item?.id;
+                    const poster =
+                        item?.posterUrl ||
+                        item?.poster_path ||
+                        "https://via.placeholder.com/500x750?text=No+Image";
+
+                    return (
+                        <View key={String(id)} style={styles.movieItem}>
+                            <TouchableWithoutFeedback onPress={() => navigation.navigate("Movie", item)}>
+                                <View style={styles.movieContent}>
+                                    <Image source={{ uri: item.posterUrl }} style={styles.movieImage} onError={() => console.log("Poster load failed:", item.posterUrl)} />
+                                    <Text style={styles.movieTitle}>{item?.title || "N/A"}</Text>
+                                </View>
+                            </TouchableWithoutFeedback>
+
+                            <TouchableOpacity
+                                onPress={() => removeFavorite(id)}
+                                style={styles.removeButton}
+                            >
+                                <XMarkIcon size={24} color="red" />
+                            </TouchableOpacity>
+                        </View>
+                    );
+                })
             ) : (
                 <Text style={styles.emptyText}>Favorites list is empty</Text>
             )}

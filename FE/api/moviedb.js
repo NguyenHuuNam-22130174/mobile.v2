@@ -34,6 +34,20 @@ export const fetchMovieDetails = async (id) => {
 
 const API_BASE_URL = "http://10.0.2.2:5000"; 
 
+const toPosterUrl = (m) => {
+  const raw =
+    m?.posterUrl ||
+    m?.posterPath ||
+    m?.poster_path ||
+    m?.poster;
+
+  if (!raw) return "https://via.placeholder.com/500x750?text=No+Image";
+  if (typeof raw !== "string") return "https://via.placeholder.com/500x750?text=No+Image";
+  if (raw.startsWith("http")) return raw;
+  if (raw.startsWith("/")) return `${API_BASE_URL}${raw}`;
+  return `${API_BASE_URL}/uploads/posters/${raw}`;
+};
+
 const apiGet = async (path) => {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "GET",
@@ -200,4 +214,47 @@ export async function fetchRatingSummary(movieId) {
 export async function fetchMovieComments(movieId) {
   const res = await API.get("/ratings", { params: { movieId } });
   return res.data; // array hoặc object tuỳ backend
+}
+
+// ===== FAVORITES =====
+
+export async function getFavoriteStatus(movieId) {
+  const res = await API.get("/favorites"); // backend trả array favorites
+  const list = Array.isArray(res.data) ? res.data : [];
+
+  const isFav = list.some((f) => {
+    const mid = f?.movieId?._id || f?.movieId; // populate hoặc không
+    return mid && String(mid) === String(movieId);
+  });
+
+  return { isFavourite: isFav };
+}
+
+export async function toggleFavorite(movieId) {
+  // cách an toàn: check status trước
+  const st = await getFavoriteStatus(movieId);
+
+  if (st.isFavourite) {
+    await API.delete(`/favorites/${movieId}`);
+    return { isFavourite: false };
+  }
+
+  await API.post("/favorites", { movieId });
+  return { isFavourite: true };
+}
+
+export async function deleteFavorite(movieId) {
+  const res = await API.delete(`/favorites/${movieId}`); // DELETE /api/favorites/:movieId
+  return res.data;
+}
+
+export async function fetchFavorites() {
+  const res = await API.get("/favorites");
+  const list = Array.isArray(res.data) ? res.data : [];
+
+  // backend trả [{..., movieId: <Movie populated>}, ...]
+  return list
+    .map((f) => f?.movieId)
+    .filter(Boolean)
+    .map((m) => ({ ...m, posterUrl: toPosterUrl(m) }));
 }
