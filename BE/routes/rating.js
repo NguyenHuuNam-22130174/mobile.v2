@@ -27,7 +27,44 @@ const getSummary = async (movieId) => {
     : { avgRating: 0, ratingCount: 0 };
 };
 
-// ✅ cộng đồng (không cần auth)
+// lấy danh sách rating/comment theo movieId (không cần auth)
+router.get("/", async (req, res) => {
+  try {
+    const { movieId } = req.query;
+
+    if (!movieId || !mongoose.Types.ObjectId.isValid(movieId)) {
+      return res.status(400).json({ message: "Invalid movieId" });
+    }
+
+    const list = await Rating.find({ movieId })
+      .sort({ updatedAt: -1 })
+      .populate("userId", "name username") // nếu schema userId có ref User
+      .lean();
+
+    const results = list.map((r) => ({
+      _id: r._id,
+      movieId: r.movieId,
+      rating: r.rating,
+      review: r.review || "",
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+
+      // để FE check mine
+      userId: r.userId?._id || r.userId,
+
+      // để FE hiện tên
+      user: r.userId
+        ? { name: r.userId?.name || r.userId?.username || "Ẩn danh" }
+        : "Ẩn danh",
+    }));
+
+    return res.json({ results });
+  } catch (e) {
+    return res.status(500).json({ message: e?.message || "Server error" });
+  }
+});
+
+// cộng đồng (không cần auth)
 router.get("/:id/summary", async (req, res) => {
   try {
     const { id } = req.params;

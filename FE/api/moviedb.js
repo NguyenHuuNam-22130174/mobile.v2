@@ -196,3 +196,8 @@ export async function fetchRatingSummary(movieId) {
   const res = await API.get(`/ratings/${movieId}/summary`);
   return res.data; // { avgRating, ratingCount }
 }
+
+export async function fetchMovieComments(movieId) {
+  const res = await API.get("/ratings", { params: { movieId } });
+  return res.data; // array hoặc object tuỳ backend
+}

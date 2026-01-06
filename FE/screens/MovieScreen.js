@@ -1,17 +1,36 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
-  View, Text, Image, Dimensions, TouchableOpacity,
-  ScrollView, Platform, TextInput,
+  View,
+  Text,
+  Image,
+  Dimensions,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+  TextInput,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeftIcon } from "react-native-heroicons/outline";
 import { HeartIcon } from "react-native-heroicons/solid";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { styles, theme } from "../theme";
 import Loading from "../components/loading";
-import { fetchMovieDetails, fetchMovieCredits, fallbackPersonImage, fetchSimilarMovies, postRating } from "../api/moviedb";
+import {
+  fetchMovieDetails,
+  fetchMovieCredits,
+  fallbackPersonImage,
+  fetchSimilarMovies,
+  postRating,
+  fetchMovieComments,
+
+  // ✅ thêm các API này (tự implement trong ../api/moviedb)
+  fetchMe,
+  getFavoriteStatus,
+  toggleFavorite,
+  postRecentlySeen,
+} from "../api/moviedb";
 
 const ios = Platform.OS === "ios";
 const topMargin = ios ? "" : " mt-3";
@@ -40,16 +59,29 @@ export default function MovieScreen() {
   }, [params]);
 
   const [movie, setMovie] = useState(initialMovie);
-  const [isFavourite, setIsFavourite] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // tất cả từ API
+  const [me, setMe] = useState({ userId: null, user: null });
+  const [isFavourite, setIsFavourite] = useState(false);
   const [similarMovies, setSimilarMovies] = useState([]);
-  const [hasRated, setHasRated] = useState(false);
 
-  const [myRating, setMyRating] = useState(10);     // 1..10
-  const [myReview, setMyReview] = useState("");   // optional
-  const [submitting, setSubmitting] = useState(false);
+  // form rating/comment
+  const [myRating, setMyRating] = useState(10);
+  const [savedRating, setSavedRating] = useState(null);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
-  const RATINGS_KEY = "ratings_local";
+  // list comments
+  const [commentText, setCommentText] = useState("");
+  const [savedCommentText, setSavedCommentText] = useState(""); // comment đã lưu trên server
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  // comments list
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [myCommentId, setMyCommentId] = useState(null);
+
+  const busy = submittingRating || submittingComment;
 
   const FIVE_MILESTONES = [
     { value: 2, label: "Dở tệ", emoji: "😭" },
@@ -79,7 +111,7 @@ export default function MovieScreen() {
           backgroundColor: "#111827",
           borderWidth: 1,
           borderColor: "#1f2937",
-          opacity: disabled ? 0.7 : 1, // nhìn như bị khóa
+          opacity: disabled ? 0.7 : 1,
         }}
       >
         {FIVE_MILESTONES.map((m) => {
@@ -88,13 +120,13 @@ export default function MovieScreen() {
           return (
             <TouchableOpacity
               key={m.value}
-              disabled={disabled} // chặn bấm
+              disabled={disabled}
               onPress={() => {
-                if (disabled) return; // chặn chắc
+                if (disabled) return;
                 onChange(m.value);
               }}
               style={{ alignItems: "center", width: "18%" }}
-              activeOpacity={disabled ? 1 : 0.85} // bị khóa thì không “nhấp nháy”
+              activeOpacity={disabled ? 1 : 0.85}
             >
               <View
                 style={{
@@ -136,18 +168,172 @@ export default function MovieScreen() {
     );
   };
 
-  //   useEffect(() => {
-  //   (async () => {
-  //     try {
-  //       await AsyncStorage.removeItem(RATINGS_KEY);
-  //       console.log("✅ Cleared all local ratings:", RATINGS_KEY);
-  //     } catch (e) {
-  //       console.log("❌ Clear all local ratings error:", e);
-  //     }
-  //   })();
-  // }, []);
+  const normalizeComments = useCallback((rs) => {
+    const list = rs?.results || rs?.data || rs?.comments || rs || [];
+    return Array.isArray(list) ? list : [];
+  }, []);
 
-  // 1) Fetch movie detail + credits
+  const isMyComment = useCallback(
+    (c) => {
+      const cid = c?._id || c?.id;
+      if (myCommentId && cid && String(cid) === String(myCommentId)) return true;
+
+      const uid = c?.userId || c?.user?._id || c?.user?.id;
+      if (me?.userId && uid && String(uid) === String(me.userId)) return true;
+
+      const uname = c?.user?.name || c?.user;
+      if (me?.user && uname) {
+        return String(uname).toLowerCase() === String(me.user).toLowerCase();
+      }
+      return false;
+    },
+    [me?.user, me?.userId, myCommentId]
+  );
+
+  const refreshComments = useCallback(async () => {
+    if (!movieId) return;
+
+    setLoadingComments(true);
+    try {
+      const rs = await fetchMovieComments(movieId);
+      const rawArr = normalizeComments(rs);
+
+      // tìm comment của mình => fill lên form
+      const mine = rawArr.find((c) => {
+        const uid = c?.userId || c?.user?._id || c?.user?.id;
+        if (me?.userId && uid && String(uid) === String(me.userId)) return true;
+
+        const uname = c?.user?.name || c?.user;
+        if (me?.user && uname) {
+          return String(uname).toLowerCase() === String(me.user).toLowerCase();
+        }
+        return false;
+      });
+
+      if (mine) {
+        setMyCommentId(mine?._id || mine?.id || null);
+        const r = mine?.rating;
+        const rNum = Number.isFinite(Number(r)) ? Number(r) : null;
+        setSavedRating(rNum);
+        setMyRating(rNum ?? 10); // đồng bộ picker theo điểm đã lưu
+        const mineText =
+          typeof mine?.review === "string"
+            ? mine.review
+            : mine?.comment || mine?.content || "";
+        setSavedCommentText(mineText || "");
+        setCommentText(mineText || "");
+      } else {
+        setMyCommentId(null);
+        setSavedRating(null);
+        setSavedCommentText("");
+        setCommentText("");
+      }
+       // chỉ hiển thị comment có nội dung (rating-only không hiện ở list)
+      const visible = rawArr.filter((c) => {
+        const content = c?.review || c?.comment || c?.content || "";
+        return String(content).trim().length > 0;
+      });
+      setComments(visible);
+    } catch (e) {
+      console.log("Load comments error:", e?.message || e);
+      setComments([]);
+      setMyCommentId(null);
+      setSavedRating(null);
+      setSavedCommentText("");
+      setCommentText("");
+    } finally {
+      setLoadingComments(false);
+    }
+  }, [movieId, me?.userId, me?.user, normalizeComments]);
+
+  // 2 handlers riêng
+  const handleSubmitRating = useCallback(async () => {
+    if (!movieId || busy) return;
+    try {
+      setSubmittingRating(true);
+
+      // gửi rating, giữ comment cũ để tránh bị wipe nếu backend update cả review
+      const rs = await postRating({
+        movieId,
+        rating: myRating,
+        review: savedCommentText || undefined, // undefined sẽ không gửi trong JSON
+      });
+
+      const summary = rs?.summary || {};
+      setMovie((prev) => ({
+        ...prev,
+        voteAverage: summary.avgRating ?? prev.voteAverage,
+        voteCount: summary.ratingCount ?? prev.voteCount,
+      }));
+
+      setSavedRating(myRating);
+    } catch (e) {
+      console.log("Rating error:", e?.message || e);
+    } finally {
+      setSubmittingRating(false);
+    }
+  }, [movieId, myRating, savedCommentText, busy]);
+
+  const handleSubmitComment = useCallback(async () => {
+    if (!movieId || busy) return;
+    const text = String(commentText || "").trim();
+    if (!text) return;
+
+    try {
+      setSubmittingComment(true);
+
+      // comment không tự “đổi điểm” nếu bạn đã lưu rating trước đó
+      const ratingToSend = savedRating != null ? savedRating : myRating;
+
+      const rs = await postRating({
+        movieId,
+        rating: ratingToSend,
+        review: text,
+      });
+
+      const summary = rs?.summary || {};
+      setMovie((prev) => ({
+        ...prev,
+        voteAverage: summary.avgRating ?? prev.voteAverage,
+        voteCount: summary.ratingCount ?? prev.voteCount,
+      }));
+
+      setSavedCommentText(text);
+      await refreshComments();
+    } catch (e) {
+      console.log("Comment error:", e?.message || e);
+    } finally {
+      setSubmittingComment(false);
+    }
+  }, [movieId, commentText, savedRating, myRating, busy, refreshComments]);
+
+  // ✅ 0) ME từ API
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rs = await fetchMe();
+        if (cancelled) return;
+
+        const userId =
+          rs?.userId || rs?._id || rs?.id || rs?.user?._id || rs?.user?.id;
+        const user =
+          rs?.user || rs?.username || rs?.name || rs?.user?.name || null;
+
+        setMe({
+          userId: userId ? String(userId) : null,
+          user: user ? String(user) : null,
+        });
+      } catch (e) {
+        if (!cancelled) setMe({ userId: null, user: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ✅ 1) Movie detail + credits từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -160,15 +346,16 @@ export default function MovieScreen() {
       try {
         setLoading(true);
 
-        // detail
         const detail = await fetchMovieDetails(movieId);
-        if (!cancelled && detail) setMovie((prev) => ({ 
-          ...prev, 
-          ...detail, 
-          voteAverage: detail?.voteAverage ?? prev?.voteAverage,
-          voteCount: detail?.voteCount ?? prev?.voteCount,}));
+        if (!cancelled && detail) {
+          setMovie((prev) => ({
+            ...prev,
+            ...detail,
+            voteAverage: detail?.voteAverage ?? prev?.voteAverage,
+            voteCount: detail?.voteCount ?? prev?.voteCount,
+          }));
+        }
 
-        // credits (director + cast)
         const credits = await fetchMovieCredits(movieId);
         if (!cancelled && credits) {
           setMovie((prev) => ({
@@ -189,31 +376,48 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
-  // 2) Favorite + RecentlySeen (chạy sau khi có movieId)
-  useEffect(() => {
-    if (!movieId) return;
-    checkFavourite(movieId);
-  }, [movieId]);
-
-  //  Recently seen
-  useEffect(() => {
-    if (!movieId) return;
-    // lưu bản movie hiện tại (sau khi fetch có thể đầy đủ hơn)
-    saveToRecentlySeen({ ...movie, _id: movieId });
-  }, [movieId, movie?.title, movie?.posterUrl]); // tránh chạy quá nhiều lần
-
-  // 3) Similar movies
+  // ✅ 2) Favorite status từ API
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       if (!movieId) return;
+      try {
+        const rs = await getFavoriteStatus(movieId);
+        if (cancelled) return;
+        const fav =
+          rs?.isFavourite ?? rs?.favorited ?? rs?.favorite ?? rs?.liked;
+        setIsFavourite(Boolean(fav));
+      } catch (e) {
+        // fail thì thôi, không crash UI
+      }
+    })();
 
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId]);
+
+  // ✅ 3) RecentlySeen log từ API
+  useEffect(() => {
+    (async () => {
+      if (!movieId) return;
+      try {
+        await postRecentlySeen({ movieId });
+      } catch (e) {}
+    })();
+  }, [movieId]);
+
+  // ✅ 4) Similar từ API
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!movieId) return;
       try {
         const res = await fetchSimilarMovies(movieId, 10);
         if (!cancelled) setSimilarMovies(res?.results || []);
       } catch (e) {
-        console.log("Load similar movies error:", e?.message || e);
         if (!cancelled) setSimilarMovies([]);
       }
     })();
@@ -223,112 +427,26 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
+  // ✅ 5) Comments từ API
+  useEffect(() => {
+    if (!movieId) return;
+    refreshComments();
+  }, [movieId, me?.userId, me?.user, refreshComments]);
+
+  // params đổi thì update nhanh (không phải local storage)
   useEffect(() => {
     setMovie(initialMovie);
   }, [initialMovie]);
 
-  useEffect(() => {
-
-    // reset 
-    setHasRated(false);
-    setMyRating(10);
-    setMyReview("");
-
-    // load khi movieId hợp lệ
-    if (movieId) loadMyRating(movieId);
-  }, [movieId]);
-
-  async function saveToRecentlySeen(movieItem) {
-    try {
-      const data = await AsyncStorage.getItem("recentlySeen");
-      let list = data ? JSON.parse(data) : [];
-
-      list = list.filter((m) => (m?._id || m?.id) !== movieId);
-      list.unshift(movieItem);
-
-      if (list.length > 20) list = list.slice(0, 20);
-      await AsyncStorage.setItem("recentlySeen", JSON.stringify(list));
-    } catch (e) {
-      console.log("Save recently seen error:", e);
-    }
-  }
-
-  async function checkFavourite(id) {
-    const data = await AsyncStorage.getItem("favorites");
-    const list = data ? JSON.parse(data) : [];
-    setIsFavourite(list.some((m) => (m?._id || m?.id) === id));
-  }
-
-  async function loadMyRating(id) {
-    try {
-      if (!id) {
-        setHasRated(false);
-        setMyRating(10);
-        setMyReview("");
-        return;
-      }
-
-      const raw = await AsyncStorage.getItem(RATINGS_KEY);
-      const obj = raw ? JSON.parse(raw) : {};
-      const mine = obj?.[id];
-
-      if (!mine) {
-        setHasRated(false);
-        setMyRating(10);
-        setMyReview("");
-        return;
-      }
-
-      setMyRating(mine?.rating ?? 10);
-      setMyReview(typeof mine?.review === "string" ? mine.review : "");
-
-      const submitted = mine?.submitted === true;
-      setHasRated(submitted);
-
-      console.log("loadMyRating:", { id, mine, submitted, keys: Object.keys(obj) });
-    } catch (e) {
-      console.log("Load my rating error:", e);
-      setHasRated(false);
-      setMyRating(10);
-      setMyReview("");
-    }
-  }
-
-  async function saveMyRating(id, patch) {
-    try {
-      if (!id) return; // chặn lưu vào "undefined"
-
-      const raw = await AsyncStorage.getItem(RATINGS_KEY);
-      const obj = raw ? JSON.parse(raw) : {};
-      const prev = obj[id] || {};
-
-      obj[id] = {
-        ...prev,
-        ...patch,
-        updatedAt: Date.now(),
-      };
-
-      await AsyncStorage.setItem(RATINGS_KEY, JSON.stringify(obj));
-    } catch (e) {
-      console.log("Save my rating error:", e);
-    }
-  }
-
   async function handleToggleFavorite() {
+    if (!movieId) return;
     try {
-      const data = await AsyncStorage.getItem("favorites");
-      let list = data ? JSON.parse(data) : [];
-
-      if (isFavourite) {
-        list = list.filter((m) => (m?._id || m?.id) !== movieId);
-      } else {
-        list.unshift({ ...movie, _id: movieId });
-      }
-
-      await AsyncStorage.setItem("favorites", JSON.stringify(list));
-      setIsFavourite(!isFavourite);
+      const rs = await toggleFavorite(movieId);
+      const fav =
+        rs?.isFavourite ?? rs?.favorited ?? rs?.favorite ?? rs?.liked;
+      setIsFavourite(typeof fav === "boolean" ? fav : !isFavourite);
     } catch (e) {
-      console.log("Toggle favorite error:", e);
+      console.log("toggleFavorite error:", e?.message || e);
     }
   }
 
@@ -375,22 +493,6 @@ export default function MovieScreen() {
 
         <Text className="text-neutral-400 mx-4 tracking-wide">{movie.overview || "No description"}</Text>
 
-        {/* COUNTRY */}
-        <View className="mx-4 mt-2">
-          <Text className="text-white text-lg font-semibold mb-2">Quốc gia</Text>
-
-          {Array.isArray(movie?.productionCountries) && movie.productionCountries.length > 0 ? (
-            <Text className="text-neutral-300">
-              {movie.productionCountries
-                .map((c) => (typeof c === "string" ? c : c?.name || c?.code))
-                .filter(Boolean)
-                .join(", ")}
-            </Text>
-          ) : (
-            <Text className="text-neutral-500">Chưa có dữ liệu quốc gia</Text>
-          )}
-        </View>
-
         {/* DIRECTOR */}
         <View className="mx-4 mt-4">
           <Text className="text-white text-lg font-semibold mb-2">Đạo diễn</Text>
@@ -423,7 +525,6 @@ export default function MovieScreen() {
                   <View key={key} className="mr-3" style={{ width: 120 }}>
                     <Image source={{ uri: avatar }} style={{ width: 80, height: 80, borderRadius: 40 }} />
                     <Text className="text-neutral-200 mt-2" numberOfLines={1}>{name}</Text>
-
                     {!!c?.character && (
                       <Text className="text-neutral-500 text-xs" numberOfLines={1}>{c.character}</Text>
                     )}
@@ -442,38 +543,46 @@ export default function MovieScreen() {
 
           {Array.isArray(similarMovies) && similarMovies.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {similarMovies.map((sm, idx) => {
-                const key = sm?._id || sm?.id || idx;
-                const poster = sm?.posterUrl || "https://via.placeholder.com/185x278?text=No+Image";
-                const title = sm?.title || "N/A";
+              {similarMovies
+                .filter((m) => String(m?._id || m?.id || "") !== String(movieId)) // tránh hiện chính nó
+                .slice(0, 15)
+                .map((m, idx) => {
+                  const key = m?._id || m?.id || idx;
 
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    className="mr-3"
-                    onPress={() => navigation.push("Movie", sm)}
-                  >
-                    <Image
-                      source={{ uri: poster }}
-                      style={{ width: 120, height: 180, borderRadius: 16 }}
-                    />
-                    <Text
-                      className="text-neutral-200 mt-2"
-                      numberOfLines={1}
-                      style={{ width: 120 }}
+                  const poster =
+                    m?.posterUrl ||
+                    m?.posterPath ||
+                    m?.poster ||
+                    "https://via.placeholder.com/500x750?text=No+Image";
+
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => navigation.push("Movie", m)} // mở movie detail mới
+                      style={{ marginRight: 12, width: 120 }}
+                      activeOpacity={0.85}
                     >
-                      {title}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Image
+                        source={{ uri: poster }}
+                        style={{ width: 120, height: 180, borderRadius: 12 }}
+                      />
+                      <Text
+                        className="text-neutral-200 mt-2"
+                        numberOfLines={2}
+                        style={{ fontSize: 13, fontWeight: "600" }}
+                      >
+                        {m?.title || "N/A"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
             </ScrollView>
           ) : (
             <Text className="text-neutral-500">Chưa có phim tương tự</Text>
           )}
         </View>
 
-        {/* RATING (thang 10) */}
+        {/* RATING */}
         <View className="mx-4 mt-6" style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#262626" }}>
           <Text className="text-white text-lg font-semibold mb-2">Đánh giá phim</Text>
 
@@ -493,87 +602,104 @@ export default function MovieScreen() {
 
           <FiveMilestoneTenPicker
             value={myRating}
-            disabled={hasRated || submitting}   // khóa nếu đã submit
+            disabled={busy}
             activeColor={theme?.background || "#ef4444"}
-            onChange={async (val) => {
-              if (!movieId) return; 
-              setMyRating(val);
-              await saveMyRating(movieId, { rating: val, review: myReview });
+            onChange={(val) => setMyRating(val)}
+          />
+          {/* Nút lưu rating */}
+          <TouchableOpacity
+            disabled={busy}
+            onPress={handleSubmitRating}
+            style={{
+              marginTop: 10,
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: "center",
+              backgroundColor: theme?.background || "#ef4444",
+              opacity: busy ? 0.7 : 1,
             }}
+          >
+            <Text style={{ color: "white", fontWeight: "700" }}>
+              {submittingRating ? "Đang lưu..." : "Lưu đánh giá"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* COMMENTS */}
+        <View className="mx-4 mt-4" style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#262626" }}>
+          <Text className="text-white text-lg font-semibold mb-2">Bình luận</Text>
+
+          <TextInput
+            value={commentText}
+            onChangeText={setCommentText}
+            editable={!busy}
+            placeholder="Viết bình luận của bạn..."
+            placeholderTextColor="#737373"
+            multiline
+            style={{ minHeight: 80, color: "white", borderWidth: 1, borderColor: "#404040", borderRadius: 12, padding: 10 }}
           />
 
-          {/* Optional: review */}
-          <View style={{ marginTop: 12 }}>
-            <Text className="text-neutral-400 mb-2">Nhận xét (tuỳ chọn)</Text>
-            <TextInput
-              editable={!hasRated}
-              value={myReview}
-              onChangeText={setMyReview}
-              placeholder="Viết vài dòng cảm nhận..."
-              placeholderTextColor="#737373"
-              multiline
-              style={{
-                minHeight: 70,
-                color: "white",
-                borderWidth: 1,
-                borderColor: "#404040",
-                borderRadius: 12,
-                padding: 10,
-              }}
-              onBlur={async () => {
-                if (!movieId) return;
-                if (hasRated) return;
-                // lưu review khi rời ô nhập
-                await saveMyRating(movieId, { rating: myRating, review: myReview });
-              }}
-            />
+          <TouchableOpacity
+            disabled={busy || String(commentText || "").trim().length === 0}
+            onPress={handleSubmitComment}
+            style={{ marginTop: 10, paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: theme?.background || "#ef4444" }}
+          >
+            <Text style={{ color: "white", fontWeight: "700" }}>
+              {submittingComment ? "Đang gửi..." : (myCommentId ? "Cập nhật bình luận" : "Gửi bình luận")}
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              disabled={hasRated}   // khóa nếu đã submit
-              onPress={async () => {
-                if (!movieId || hasRated || submitting) return;
+          <View style={{ marginTop: 14 }}>
+            {loadingComments ? (
+              <Text className="text-neutral-400">Đang tải bình luận...</Text>
+            ) : comments?.length > 0 ? (
+              comments.map((c, idx) => {
+                const cid = c?._id || c?.id || idx;
+                const uname = c?.user?.name || c?.user || "Ẩn danh";
+                const content = c?.review || c?.comment || c?.content || "";
+                const point = c?.rating ?? null;
+                const time = c?.updatedAt || c?.createdAt;
+                const mine = isMyComment(c);
 
-                try {
-                  setSubmitting(true);
+                return (
+                  <View key={cid} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: "#262626" }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: "white", fontWeight: "700" }}>
+                        {uname} {mine ? <Text style={{ color: "#9ca3af" }}>(bạn)</Text> : null}
+                      </Text>
+                      <Text style={{ color: "#9ca3af", fontSize: 12 }}>
+                        {time ? new Date(time).toLocaleString("vi-VN") : ""}
+                      </Text>
+                    </View>
 
-                  console.log("POST /api/ratings payload:", { movieId, rating: myRating, review: myReview });
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+                      {point != null ? (
+                        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: "#374151", marginRight: 8 }}>
+                          <Text style={{ color: "white", fontWeight: "700" }}>{point}/10</Text>
+                        </View>
+                      ) : null}
+                      <Text style={{ color: "#e5e7eb", flex: 1 }}>{content || "—"}</Text>
+                    </View>
 
-                  const rs = await postRating({
-                    movieId,
-                    rating: myRating,
-                    review: myReview,
-                  });
-
-                  console.log("POST rating response:", rs);
-
-                  // update UI ngay theo summary server
-                  const summary = rs?.summary || {};
-                  setMovie((prev) => ({
-                    ...prev,
-                    voteAverage: summary.avgRating ?? prev.voteAverage,
-                    voteCount: summary.ratingCount ?? prev.voteCount,
-                  }));
-
-                  setHasRated(true);
-
-                  // vẫn lưu local để nhớ trạng thái đã rate
-                  await saveMyRating(movieId, { rating: myRating, review: myReview, submitted: true });
-                } catch (e) {
-                  console.log("Rate error:", e?.message || e);
-                } finally {
-                  setSubmitting(false);
-                }
-              }}
-              style={{
-                marginTop: 10,
-                paddingVertical: 10,
-                borderRadius: 12,
-                alignItems: "center",
-                backgroundColor: theme?.background || "#ef4444",
-              }}
-            >
-              <Text style={{ color: "white", fontWeight: "700" }}>Lưu đánh giá</Text>
-            </TouchableOpacity>
+                    {mine ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setCommentText(typeof c?.review === "string" ? c.review : c?.comment || c?.content || "");
+                          setMyCommentId(c?._id || c?.id || null);
+                        }}
+                        style={{ marginTop: 8 }}
+                      >
+                        <Text style={{ color: theme?.background || "#ef4444", fontWeight: "700" }}>
+                          Sửa bình luận
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })
+            ) : (
+              <Text className="text-neutral-500">Chưa có bình luận nào</Text>
+            )}
           </View>
         </View>
       </View>
@@ -590,10 +716,7 @@ export default function MovieScreen() {
         }}
         onPress={() => {
           const videoId = getYoutubeId(movie?.videoUrl);
-          if (!videoId) {
-            console.log("Phim này chưa có videoUrl:", movie?.title);
-            return;
-          }
+          if (!videoId) return;
           navigation.navigate("Trailer", { videoId });
         }}
       >
