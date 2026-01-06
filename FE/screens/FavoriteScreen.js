@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -6,18 +6,55 @@ import {
     TouchableWithoutFeedback,
     TouchableOpacity,
     Image,
-    Alert,
-    StyleSheet
+    StyleSheet,
+    Modal,
+    Pressable,
 } from "react-native";
 import { fetchFavorites, deleteFavorite } from "../api/moviedb";
 import { useNavigation } from "@react-navigation/native";
-import { image185 } from "../api/moviedb";
 import { Bars3CenterLeftIcon, XMarkIcon } from "react-native-heroicons/outline";
 import { useFocusEffect } from "@react-navigation/native";  
 
 export default function FavoriteScreen() {
     const [favorites, setFavorites] = useState([]);
     const navigation = useNavigation();
+
+    const [confirmVisible, setConfirmVisible] = useState(false);
+    const [pendingDelete, setPendingDelete] = useState(null); // movie object hoặc id
+    const [deleting, setDeleting] = useState(false);
+
+    const openDeletePopup = (movie) => {
+        setPendingDelete(movie);
+        setConfirmVisible(true);
+    };
+
+    const closeDeletePopup = () => {
+        if (deleting) return;
+        setConfirmVisible(false);
+        setPendingDelete(null);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
+
+        const movieId = pendingDelete?._id || pendingDelete?.id;
+        if (!movieId) return;
+
+        try {
+            setDeleting(true);
+            await deleteFavorite(movieId);
+
+            setFavorites((prev) =>
+                prev.filter((m) => String(m?._id || m?.id) !== String(movieId))
+            );
+
+            closeDeletePopup();
+        } catch (e) {
+            console.log("Delete favorite error:", e?.message || e);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     // Load danh sách yêu thích
     useFocusEffect(
@@ -42,29 +79,29 @@ export default function FavoriteScreen() {
     );
 
     // Hàm xóa phim khỏi danh sách yêu thích
-    const removeFavorite = async (movieId) => {
-        Alert.alert(
-            "Confirm",
-            "Are you sure you want to remove this movie from your favorites?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Confirm",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await deleteFavorite(movieId);
-                            setFavorites((prev) =>
-                                prev.filter((m) => String(m?._id || m?.id) !== String(movieId))
-                            );
-                        } catch (e) {
-                            console.log("Delete favorite error:", e?.message || e);
-                        }
-                    },
-                },
-            ]
-        );
-    };
+    // const removeFavorite = async (movieId) => {
+    //     Alert.alert(
+    //         "Confirm",
+    //         "Are you sure you want to remove this movie from your favorites?",
+    //         [
+    //             { text: "Cancel", style: "cancel" },
+    //             {
+    //                 text: "Confirm",
+    //                 style: "destructive",
+    //                 onPress: async () => {
+    //                     try {
+    //                         await deleteFavorite(movieId);
+    //                         setFavorites((prev) =>
+    //                             prev.filter((m) => String(m?._id || m?.id) !== String(movieId))
+    //                         );
+    //                     } catch (e) {
+    //                         console.log("Delete favorite error:", e?.message || e);
+    //                     }
+    //                 },
+    //             },
+    //         ]
+    //     );
+    // };
 
     return (
         <ScrollView style={styles.container}>
@@ -95,7 +132,7 @@ export default function FavoriteScreen() {
                             </TouchableWithoutFeedback>
 
                             <TouchableOpacity
-                                onPress={() => removeFavorite(id)}
+                                onPress={() => openDeletePopup(item)}
                                 style={styles.removeButton}
                             >
                                 <XMarkIcon size={24} color="red" />
@@ -106,7 +143,50 @@ export default function FavoriteScreen() {
             ) : (
                 <Text style={styles.emptyText}>Favorites list is empty</Text>
             )}
+
+            {/* CONFIRM DELETE MODAL */}
+            <Modal
+                visible={confirmVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeDeletePopup}
+            >
+                <Pressable style={styles.modalBackdrop} onPress={closeDeletePopup}>
+                    <Pressable style={styles.modalCard} onPress={() => { }}>
+                        <Text style={styles.modalTitle}>Xoá khỏi yêu thích?</Text>
+
+                        <Text style={styles.modalDesc}>
+                            Bạn có chắc muốn xoá{" "}
+                            <Text style={{ fontWeight: "700", color: "white" }}>
+                                {pendingDelete?.title || "phim này"}
+                            </Text>{" "}
+                            khỏi danh sách yêu thích không?
+                        </Text>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                disabled={deleting}
+                                onPress={closeDeletePopup}
+                                style={[styles.modalBtn, styles.modalBtnCancel, deleting && { opacity: 0.6 }]}
+                            >
+                                <Text style={styles.modalBtnText}>Huỷ</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                disabled={deleting}
+                                onPress={confirmDelete}
+                                style={[styles.modalBtn, styles.modalBtnDanger, deleting && { opacity: 0.6 }]}
+                            >
+                                <Text style={[styles.modalBtnText, { color: "white" }]}>
+                                    {deleting ? "Đang xoá..." : "Xoá"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </ScrollView>
+        
     );
 }
 
@@ -162,4 +242,58 @@ const styles = StyleSheet.create({
         marginTop: 50,
         fontSize: 16,
     },
+
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+    },
+    modalCard: {
+        width: "100%",
+        maxWidth: 420,
+        backgroundColor: "#0b1220",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#1f2937",
+    },
+    modalTitle: {
+        color: "white",
+        fontSize: 18,
+        fontWeight: "800",
+    },
+    modalDesc: {
+        marginTop: 10,
+        color: "#cbd5e1",
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    modalActions: {
+        marginTop: 14,
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 10,
+    },
+    modalBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        minWidth: 90,
+        alignItems: "center",
+    },
+    modalBtnCancel: {
+        backgroundColor: "#111827",
+        borderWidth: 1,
+        borderColor: "#334155",
+    },
+    modalBtnDanger: {
+        backgroundColor: "#ef4444",
+    },
+    modalBtnText: {
+        color: "#e5e7eb",
+        fontWeight: "800",
+    },
+
 });
