@@ -26,6 +26,7 @@ export default function TopRatedScreen() {
             try {
                 const data = await fetchTopRatedMovies();
                 if (data?.results) setMovies(data.results);
+                console.log("sample movie keys:", data?.results?.[0]);
             } catch (error) {
                 console.error("Failed to fetch top-rated movies:", error);
             } finally {
@@ -54,21 +55,21 @@ export default function TopRatedScreen() {
             {/* Movie list */}
             {movies.length > 0 ? (
                 movies.map((item) => (
-                    <View key={item.id} style={styles.movieItem}>
+                    <View key={item._id} style={styles.movieItem}>
                         <TouchableOpacity
                             onPress={() => navigation.navigate("Movie", item)}
                             style={styles.movieContent}
                         >
                             <Image
-                                source={{ uri: image185(item.poster_path) }}
+                                source={{ uri: item.posterUrl }} 
                                 style={styles.movieImage}
                             />
                             <View style={styles.movieInfo}>
-                                <Text style={styles.movieTitle}>
-                                    {item.title}
-                                </Text>
+                                <Text style={styles.movieTitle}>{item.title}</Text>
                                 <Text style={styles.movieDate}>
-                                    {item.release_date || "No release date"}
+                                    {item.releaseDate
+                                        ? new Date(item.releaseDate).toISOString().slice(0, 10)
+                                        : "No release date"}
                                 </Text>
                             </View>
                         </TouchableOpacity>
