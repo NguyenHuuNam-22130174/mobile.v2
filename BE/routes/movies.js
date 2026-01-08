@@ -5,6 +5,8 @@ const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
+const mongoose = require("mongoose");
+
 // map person (director/cast)
 const mapPerson = (p) => {
   if (!p) return null;
@@ -129,6 +131,20 @@ router.get("/:id/credits", async (req, res) => {
   }
 });
 
+// GET upcoming movies  
+router.get("/upcoming", async (req, res) => {
+  try {
+    const movies = await Movie.find({ status: "Upcoming" })
+      .sort({ releaseDate: 1 })
+      .populate("director")
+      .populate("cast.person");
+
+    return res.json({ results: movies.map(mapMovie) });
+  } catch (err) {
+    console.error("GET /movies/upcoming error:", err);
+    return res.status(500).json({ message: err.message });
+  }
+});
 
 // GET detail + populate
 router.get("/:id", async (req, res) => {

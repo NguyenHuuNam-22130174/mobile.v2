@@ -17,7 +17,6 @@ export const fetchTrendingMovies = async () => {
   return { results: res.data };
 };
 
-export const fetchUpcomingMovies = fetchTrendingMovies;
 export const fetchTopRatedMovies = fetchTrendingMovies;
 
 // ===== SEARCH =====
@@ -258,3 +257,10 @@ export async function fetchFavorites() {
     .filter(Boolean)
     .map((m) => ({ ...m, posterUrl: toPosterUrl(m) }));
 }
+
+export const fetchUpcomingMovies = async () => {
+  const res = await API.get("/movies/upcoming");
+  const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+  return { results: list };
+};
+
