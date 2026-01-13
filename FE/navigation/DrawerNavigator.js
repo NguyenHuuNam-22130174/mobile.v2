@@ -1,10 +1,19 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useRef, useEffect } from "react";
 import {
     createDrawerNavigator,
     DrawerContentScrollView,
     DrawerItemList,
 } from "@react-navigation/drawer";
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    StyleSheet,
+    Modal,
+    Pressable,
+    ActivityIndicator,
+    Animated,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
     ArrowRightOnRectangleIcon,
@@ -31,25 +40,56 @@ const CustomDrawerContent = (props) => {
     const { theme, isDarkMode, toggleTheme } = useTheme();
     const navigation = props.navigation;
 
-    const handleLogout = () => {
-        Alert.alert(
-            "Confirm Logout",
-            "Are you sure you want to log out from M-FLIX?",
-            [
-                { text: "Stay", style: "cancel" },
-                {
-                    text: "Logout",
-                    style: "destructive",
-                    onPress: async () => {
-                        await logout();
-                        navigation.reset({
-                            index: 0,
-                            routes: [{ name: "Login" }],
-                        });
-                    },
-                },
-            ]
-        );
+    const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+    const [logoutDoneOpen, setLogoutDoneOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+
+    const anim = useRef(new Animated.Value(0)).current;
+
+    // mở modal confirm
+    const openLogoutModal = () => setLogoutModalOpen(true);
+    const closeLogoutModal = () => {
+        if (loggingOut) return;
+        setLogoutModalOpen(false);
+    };
+
+    // animate modal khi mở/đóng
+    useEffect(() => {
+        Animated.timing(anim, {
+            toValue: logoutModalOpen ? 1 : 0,
+            duration: 160,
+            useNativeDriver: true,
+        }).start();
+    }, [logoutModalOpen]);
+
+    const handleConfirmLogout = async () => {
+        if (loggingOut) return;
+
+        setLoggingOut(true);
+        try {
+            await logout();
+
+            // đóng popup confirm
+            setLogoutModalOpen(false);
+
+            // mở popup "đăng xuất thành công"
+            setLogoutDoneOpen(true);
+
+            // chờ 700ms rồi reset về Login
+            setTimeout(() => {
+                setLogoutDoneOpen(false);
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "Login" }],
+                });
+            }, 700);
+        } catch (e) {
+            console.log("Logout error:", e);
+            setLoggingOut(false);
+            setLogoutModalOpen(false);
+        } finally {
+            setLoggingOut(false);
+        }
     };
 
     return (
@@ -60,6 +100,87 @@ const CustomDrawerContent = (props) => {
                 { backgroundColor: theme.colors.background },
             ]}
         >
+            {/* ====== CONFIRM LOGOUT MODAL ====== */}
+            <Modal
+                visible={logoutModalOpen}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={closeLogoutModal}
+            >
+                <Pressable style={styles.modalBackdrop} onPress={closeLogoutModal}>
+                    <Animated.View
+                        style={[
+                            styles.modalCard,
+                            {
+                                backgroundColor: theme.colors.card,
+                                transform: [
+                                    {
+                                        scale: anim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [0.95, 1],
+                                        }),
+                                    },
+                                ],
+                                opacity: anim,
+                            },
+                        ]}
+                        // chặn click xuyên ra backdrop
+                        onStartShouldSetResponder={() => true}
+                    >
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                            Đăng xuất?
+                        </Text>
+
+                        <Text style={[styles.modalDesc, { color: theme.colors.secondary }]}>
+                            Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng M-FLIX.
+                        </Text>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                onPress={closeLogoutModal}
+                                disabled={loggingOut}
+                                style={[
+                                    styles.modalBtn,
+                                    { backgroundColor: theme.colors.background },
+                                ]}
+                            >
+                                <Text style={[styles.modalBtnText, { color: theme.colors.text }]}>
+                                    Ở lại
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={handleConfirmLogout}
+                                disabled={loggingOut}
+                                style={[
+                                    styles.modalBtn,
+                                    { backgroundColor: `${theme.colors.error}20` },
+                                ]}
+                            >
+                                {loggingOut ? (
+                                    <ActivityIndicator />
+                                ) : (
+                                    <Text style={[styles.modalBtnText, { color: theme.colors.error }]}>
+                                        Đăng xuất
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </Pressable>
+            </Modal>
+
+            {/* ====== LOGOUT SUCCESS POPUP (TOAST) ====== */}
+            <Modal visible={logoutDoneOpen} transparent animationType="fade" statusBarTranslucent>
+                <View style={styles.toastBackdrop}>
+                    <View style={[styles.toastCard, { backgroundColor: theme.colors.card }]}>
+                        <Text style={[styles.toastText, { color: theme.colors.text }]}>
+                            Đăng xuất thành công!
+                        </Text>
+                    </View>
+                </View>
+            </Modal>
             <LinearGradient
                 colors={[theme.colors.card, theme.colors.background]}
                 style={styles.gradientBackground}
@@ -133,7 +254,7 @@ const CustomDrawerContent = (props) => {
 
             {isLoggedIn && (
                 <TouchableOpacity
-                    onPress={handleLogout}
+                    onPress={openLogoutModal}
                     style={[
                         styles.logoutButton,
                         { backgroundColor: `${theme.colors.error}20` },
@@ -308,5 +429,68 @@ const styles = StyleSheet.create({
     logoutText: {
         fontSize: 15,
         fontWeight: "600",
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+    },
+
+    modalCard: {
+        width: "100%",
+        maxWidth: 420,
+        borderRadius: 16,
+        padding: 16,
+    },
+
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+    },
+
+    modalDesc: {
+        marginTop: 8,
+        fontSize: 14,
+        lineHeight: 20,
+    },
+
+    modalActions: {
+        marginTop: 16,
+        flexDirection: "row",
+        gap: 10,
+    },
+
+    modalBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    modalBtnText: {
+        fontSize: 15,
+        fontWeight: "700",
+    },
+
+    toastBackdrop: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.25)",
+        padding: 20,
+    },
+
+    toastCard: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+    },
+
+    toastText: {
+        fontSize: 15,
+        fontWeight: "700",
     },
 });

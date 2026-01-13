@@ -49,18 +49,14 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
-    // const logout = async () => {
-    //     await AsyncStorage.multiRemove(["token", "userEmail"]);
-    //     setAuthState({
-    //         isLoggedIn: false,
-    //         userEmail: null,
-    //         token: null,
-    //     });
-    // };
-
     const logout = useCallback(async () => {
-        await AsyncStorage.removeItem("token");
-        setIsLoggedIn(false);
+        await AsyncStorage.multiRemove(["token", "userEmail"]);
+
+        setAuthState({
+            isLoggedIn: false,
+            userEmail: null,
+            token: null,
+        });
     }, []);
 
     // đăng ký hàm logout để API gọi khi 401
