@@ -1,4 +1,5 @@
 import { API } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ===== IMAGE UTILS (giữ nguyên để FE không đổi) =====
 export const image500 = (path) => path;
@@ -182,7 +183,7 @@ export const fetchPersonDetails = async (id) => {
 };
 
 // ===== PERSON MOVIES =====
-// cần backend có GET /api/person/:id/movies (mình hướng dẫn ở mục 4)
+// cần backend có GET /api/person/:id/movies
 export const fetchPersonMovies = async (id) => {
   const res = await API.get(`/person/${id}/movies`);
   return { results: res.data }; // tuỳ bạn dùng key gì ở UI
@@ -263,4 +264,45 @@ export const fetchUpcomingMovies = async () => {
   const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
   return { results: list };
 };
+
+const readToken = async () => {
+  // Ưu tiên key "token"
+  let t = await AsyncStorage.getItem("token");
+
+  // Nếu bạn lưu token trong object user thì fallback
+  if (!t) {
+    const uStr = await AsyncStorage.getItem("user");
+    try {
+      const u = JSON.parse(uStr || "{}");
+      t = u?.token || u?.accessToken || null;
+    } catch {}
+  }
+
+  // Nếu lỡ lưu dạng "Bearer xxx" thì cắt ra
+  if (t?.startsWith("Bearer ")) t = t.slice(7);
+  return t;
+};
+
+export const fetchRecentlySeen = async (limit = 10) => {
+  const token = await readToken();
+
+  console.log("RECENTLY token preview:", token ? token.slice(0, 20) + "..." : token);
+
+  const res = await API.get("/recently-seen", {
+    params: { limit },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return { results: res.data };
+};
+
+export async function postRecentlySeen(movieIdOrObj) {
+  const movieId =
+    typeof movieIdOrObj === "string" ? movieIdOrObj : movieIdOrObj?.movieId;
+
+  if (!movieId) throw new Error("postRecentlySeen: missing movieId");
+
+  const res = await API.post("/recently-seen", { movieId });
+  return res.data;
+}
 

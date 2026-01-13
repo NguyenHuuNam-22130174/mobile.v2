@@ -19,21 +19,14 @@ import Loading from "../components/loading";
 import { useTheme } from "../components/context/ThemeContext";
 import { API } from "../api/api"; // axios client
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import TrendingMovies from "../components/trendingMovies";
 
 
 const ios = Platform.OS === "ios";
 const HEADER_HEIGHT = ios ? 60 : 70;
-const RECENTLY_KEY = "recentlySeen";
 
 const norm = (s) => (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 const date10 = (d) => (d ? String(d).slice(0, 10) : "");
-
-function safeParseDate(value) {
-    const t = Date.parse(value);
-    return Number.isFinite(t) ? new Date(t) : null;
-}
 
 // ưu tiên field nào có thì lấy làm "điểm" để sort
 function getMovieScore(m) {
@@ -77,35 +70,23 @@ function getMostWatchedGenres(movies) {
 }
 
 const getMovieKey = (m) => {
-  const title = norm(m?.title ?? m?.name);
-  const date = date10(m?.releaseDate ?? m?.release_date);
-  if (title) return `${title}|${date}`;
-  const id = m?._id ?? m?.id;
-  return id ? `id:${id}` : "";
+    const title = norm(m?.title ?? m?.name);
+    const date = date10(m?.releaseDate ?? m?.release_date);
+    if (title) return `${title}|${date}`;
+    const id = m?._id ?? m?.id;
+    return id ? `id:${id}` : "";
 };
 
-async function addRecentlySeen(movie, limit = 20) {
-  const raw = await AsyncStorage.getItem(RECENTLY_KEY);
-  const list = raw ? JSON.parse(raw) : [];
-  const safe = Array.isArray(list) ? list : [];
-
-  const key = getMovieKey(movie);
-  const next = [movie, ...safe.filter((m) => getMovieKey(m) !== key)].slice(0, limit);
-
-  await AsyncStorage.setItem(RECENTLY_KEY, JSON.stringify(next));
-  return next;
-}
-
 function uniqueByKey(list) {
-  const seen = new Set();
-  const out = [];
-  for (const item of list) {
-    const key = getMovieKey(item);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(item);
-  }
-  return out;
+    const seen = new Set();
+    const out = [];
+    for (const item of list) {
+        const key = getMovieKey(item);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(item);
+    }
+    return out;
 }
 
 export default function HomeScreen() {
@@ -131,6 +112,7 @@ export default function HomeScreen() {
     const headerY = useRef(new Animated.Value(-HEADER_HEIGHT)).current;
     const contentY = useRef(new Animated.Value(30)).current;
 
+    //#region Effects - Init / Focus
     useEffect(() => {
         loadData();
         startAnimations();
@@ -146,33 +128,27 @@ export default function HomeScreen() {
             run();
         }, [allMovies])
     );
+    //#endregion
 
+    //#region API - Load Data (Home Lists)
     const loadData = async () => {
         try {
-            console.log("CALL API: /api/movies");
-            const res = await API.get("/movies");
-            const list = Array.isArray(res.data) ? res.data : [];
+            setLoading(true);
 
-            console.log("API RESPONSE STATUS:", res.status);
-            console.log("MOVIES DATA:", list);
+            // lấy all movies + upcoming riêng
+            const [moviesRes, upcomingRes] = await Promise.all([
+                API.get("/movies"),
+                API.get("/movies/upcoming"),
+            ]);
+
+            const list = Array.isArray(moviesRes.data) ? moviesRes.data : [];
+            const upList = Array.isArray(upcomingRes.data?.results)
+                ? upcomingRes.data.results
+                : [];
 
             setAllMovies(list);
 
-            // ====== client-side phân loại ======
-            const now = new Date();
-
-            // Upcoming: releaseDate > hiện tại (nếu field có)
-            const up = list
-                .filter((m) => {
-                    const d = safeParseDate(m?.releaseDate);
-                    return d && d > now;
-                })
-                .sort((a, b) => safeParseDate(a.releaseDate) - safeParseDate(b.releaseDate));
-
-            // Top Rated: sort theo score (rating/voteAverage/...)
-            const top = [...list].sort((a, b) => getMovieScore(b) - getMovieScore(a));
-
-            // Trending: nếu có popularity/views thì tự sort; nếu không thì lấy top list
+            // ====== Trending (từ all movies) ======
             const trend = [...list]
                 .sort((a, b) => {
                     const vb = b?.viewCount ?? 0;
@@ -184,13 +160,17 @@ export default function HomeScreen() {
                     return tb - ta;
                 })
                 .slice(0, 10);
-            setTrending(trend);
 
-            setUpcoming(up);
-            setTopRated(top);
+            // ====== Top Rated (từ all movies) ======
+            const top = [...list].sort((a, b) => getMovieScore(b) - getMovieScore(a));
+
+            // Upcoming lấy từ API upcoming (đủ 2 phim)
+            setUpcoming(upList);
+
             setTrending(trend);
+            setTopRated(top);
         } catch (err) {
-            console.log("FETCH MOVIES ERROR:", err?.message);
+            console.log("FETCH MOVIES ERROR:", err?.response?.data || err?.message);
         } finally {
             setLoading(false);
         }
@@ -259,7 +239,9 @@ export default function HomeScreen() {
 
         setRecommendedMovies(uniqueByKey(rec));
     };
+    //#endregion
 
+    //#region Animations
     const startAnimations = () => {
         Animated.timing(headerY, {
             toValue: 0,
@@ -283,7 +265,9 @@ export default function HomeScreen() {
             }),
         ]).start();
     };
+    //#endregion
 
+    //#region Handlers - UI Actions
     const handleOpenMovie = async (movie) => {
         try {
             if (movie?._id) {
@@ -298,7 +282,9 @@ export default function HomeScreen() {
             navigation.navigate("Movie", movie);
         }
     };
+    //#endregion
 
+    //#region Render
     if (loading) return <Loading />;
 
     return (
@@ -398,6 +384,7 @@ export default function HomeScreen() {
             </Animated.ScrollView>
         </View>
     );
+    //#endregion
 }
 
 const styles = StyleSheet.create({

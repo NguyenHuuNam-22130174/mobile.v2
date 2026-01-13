@@ -24,8 +24,6 @@ import {
   fetchSimilarMovies,
   postRating,
   fetchMovieComments,
-
-  // thêm các API này (tự implement trong ../api/moviedb)
   fetchMe,
   getFavoriteStatus,
   toggleFavorite,
@@ -36,6 +34,7 @@ const ios = Platform.OS === "ios";
 const topMargin = ios ? "" : " mt-3";
 const { width, height } = Dimensions.get("window");
 
+//#region Helper (outside component)
 const getYoutubeId = (url) => {
   if (!url || typeof url !== "string") return "";
   const match = url.match(
@@ -43,6 +42,7 @@ const getYoutubeId = (url) => {
   );
   return match?.[1] || "";
 };
+//#endregion
 
 export default function MovieScreen() {
   const route = useRoute();
@@ -94,6 +94,7 @@ export default function MovieScreen() {
   const getMilestoneLabel = (v) =>
     FIVE_MILESTONES.find((x) => x.value === v)?.label || "";
 
+  //#region UI - Components (inside screen)
   const FiveMilestoneTenPicker = ({
     value,
     onChange,
@@ -167,7 +168,9 @@ export default function MovieScreen() {
       </View>
     );
   };
+  //#endregion
 
+  //#region Comments - Helpers
   const normalizeComments = useCallback((rs) => {
     const list = rs?.results || rs?.data || rs?.comments || rs || [];
     return Array.isArray(list) ? list : [];
@@ -245,8 +248,9 @@ export default function MovieScreen() {
       setLoadingComments(false);
     }
   }, [movieId, me?.userId, me?.user, normalizeComments]);
+  //#endregion
 
-  // 2 handlers riêng
+  //#region Submit - Rating / Comment
   const handleSubmitRating = useCallback(async () => {
     if (!movieId || busy) return;
     try {
@@ -306,8 +310,10 @@ export default function MovieScreen() {
       setSubmittingComment(false);
     }
   }, [movieId, commentText, savedRating, myRating, busy, refreshComments]);
+  //#endregion
 
-  // ✅ 0) ME từ API
+  //#region Effects - Load Data (API)
+  // 0) ME từ API
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -333,7 +339,7 @@ export default function MovieScreen() {
     };
   }, []);
 
-  // ✅ 1) Movie detail + credits từ API
+  // 1) Movie detail + credits từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -376,7 +382,7 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
-  // ✅ 2) Favorite status từ API
+  // 2) Favorite status từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -398,17 +404,21 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
-  // ✅ 3) RecentlySeen log từ API
+  // 3) RecentlySeen log từ API
   useEffect(() => {
     (async () => {
       if (!movieId) return;
       try {
-        await postRecentlySeen({ movieId });
-      } catch (e) {}
+        // await postRecentlySeen({ movieId });
+      const rs = await postRecentlySeen(movieId); // truyền STRING
+      console.log("POST /recently-seen OK:", rs);
+      } catch (e) {
+        console.log("POST /recently-seen FAIL:", e?.response?.data || e?.message || e);
+      }
     })();
   }, [movieId]);
 
-  // ✅ 4) Similar từ API
+  // 4) Similar từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -427,7 +437,7 @@ export default function MovieScreen() {
     };
   }, [movieId]);
 
-  // ✅ 5) Comments từ API
+  // 5) Comments từ API
   useEffect(() => {
     if (!movieId) return;
     refreshComments();
@@ -437,7 +447,9 @@ export default function MovieScreen() {
   useEffect(() => {
     setMovie(initialMovie);
   }, [initialMovie]);
+  //#endregion
 
+  //#region Handlers - UI Actions
   async function handleToggleFavorite() {
     if (!movieId) return;
     try {
@@ -449,7 +461,9 @@ export default function MovieScreen() {
       console.log("toggleFavorite error:", e?.message || e);
     }
   }
+  //#endregion
 
+  //#region Render
   if (loading) return <Loading />;
 
   return (
@@ -725,3 +739,4 @@ export default function MovieScreen() {
     </ScrollView>
   );
 }
+//#endregion
