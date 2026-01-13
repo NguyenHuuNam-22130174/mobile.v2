@@ -349,7 +349,7 @@ export default function HomeScreen() {
                 {/* TRENDING */}
                 {trending.length > 0 && (
                     <TrendingMovies
-                        data={trending.slice(0, 10)}
+                        data={trending.slice(0, 10).map((m, i) => ({ ...m, rank: i + 1 }))}
                         onPressItem={handleOpenMovie}
                     />
                 )}

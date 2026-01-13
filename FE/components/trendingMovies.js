@@ -35,8 +35,8 @@ export default function TrendingMovies({ data, onPressItem }) {
         keyExtractor={(item, index) =>
           String(item?._id ?? item?.id ?? `${item?.title}-${index}`)
         }
-        renderItem={({ item }) => (
-          <MovieCard handleClick={handleClick} item={item} />
+        renderItem={({ item, index }) => (
+          <MovieCard handleClick={handleClick} item={item} rank={index + 1} />
         )}
         firstItem={1}
         inactiveSlideOpacity={0.6}
@@ -48,20 +48,54 @@ export default function TrendingMovies({ data, onPressItem }) {
   );
 }
 
-const MovieCard = ({ item, handleClick }) => {
+const MovieCard = ({ item, handleClick, rank }) => {
+  const posterW = width * 0.6;
+  const posterH = height * 0.4;
+  const radius = 24;
+
   return (
     <TouchableWithoutFeedback onPress={() => handleClick(item)}>
       <View style={{ alignItems: "center" }}>
-        <Image
-          source={{ uri: item?.posterUrl }}   // ✅ dùng posterUrl từ API của bạn
+        {/* Wrap poster để đặt badge absolute */}
+        <View
           style={{
-            width: width * 0.6,
-            height: height * 0.4,
-            borderRadius: 24,
+            width: posterW,
+            height: posterH,
+            borderRadius: radius,
+            overflow: "hidden",
             backgroundColor: "#222",
+            position: "relative",
           }}
-          resizeMode="cover"
-        />
+        >
+          <Image
+            source={{ uri: item?.posterUrl }}
+            style={{ width: "100%", height: "100%" }}
+            resizeMode="cover"
+          />
+
+          {/* Rank badge: top-right */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              minWidth: 26,
+              height: 26,
+              paddingHorizontal: 7,
+              borderRadius: 13,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0,0,0,0.75)",
+              zIndex: 10,
+              elevation: 10,
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "800", fontSize: 12 }}>
+              {rank}
+            </Text>
+          </View>
+        </View>
 
         <Text
           style={{
