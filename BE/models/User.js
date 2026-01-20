@@ -16,18 +16,24 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
     },
     password: {
       type: String,
       required: true,
-      minlength: 6
-    }
+      minlength: 6,
+    },
+
+    // ✅ thêm các field profile ở đây
+    name: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
   },
   {
-    timestamps: true // tự tạo createdAt, updatedAt
+    timestamps: true,
   }
 );
 
 module.exports = mongoose.model("User", userSchema);
+
 

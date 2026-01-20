@@ -306,3 +306,19 @@ export async function postRecentlySeen(movieIdOrObj) {
   return res.data;
 }
 
+// Chuẩn hoá data trả về 
+const pickData = (res) => {
+  return res?.data?.data ?? res?.data ?? null;
+};
+
+// GET /api/auth/me - lấy thông tin user hiện tại
+export const fetchMe = async () => {
+  const res = await API.get("/auth/me");
+  return res.data.user;
+};
+
+// OPTIONAL: update profile (nếu BE có)
+export const updateMe = async (payload) => {
+  const res = await API.put("/auth/me", payload);
+  return pickData(res);
+};

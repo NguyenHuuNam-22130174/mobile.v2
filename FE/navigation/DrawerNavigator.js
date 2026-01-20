@@ -32,6 +32,7 @@ import { AuthContext } from "../components/context/AuthContext";
 import { useTheme } from "../components/context/ThemeContext";
 import TopRatedScreen from "../screens/TopRatedScreen";
 import { FilmIcon } from "react-native-heroicons/solid";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const Drawer = createDrawerNavigator();
 
@@ -286,6 +287,7 @@ export default function DrawerNavigator() {
 
     return (
         <Drawer.Navigator
+            initialRouteName="Home"
             drawerContent={(props) => <CustomDrawerContent {...props} />}
             screenOptions={{
                 headerShown: false,
@@ -307,6 +309,16 @@ export default function DrawerNavigator() {
                 swipeEdgeWidth: 0, // Tắt khả năng vuốt khi Drawer hiện lên
             }}
         >
+            <Drawer.Screen
+                name="Profile"
+                component={ProfileScreen}
+                options={{
+                    title: "Profile",
+                    drawerIcon: ({ color }) => (
+                        <UserIcon size={22} color={color} />
+                    ),
+                }}
+            />
             <Drawer.Screen
                 name="Home"
                 component={HomeScreen}

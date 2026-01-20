@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const router = express.Router();
+const authMiddleware = require("../middleware/authMiddleware");
 
 // Đăng ký
 router.post("/register", async (req, res) => {
@@ -97,5 +98,57 @@ router.post("/login", async (req, res) => {
         res.status(500).json({ error: "Server error during login" });
     }
 });
+
+// Lấy thông tin user hiện tại (từ token)
+// GET /api/auth/me
+router.get("/me", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.userId; // payload bạn sign lúc login đang là { userId, email } :contentReference[oaicite:2]{index=2}
+    if (!userId) return res.status(401).json({ error: "Invalid token payload" });
+
+    const user = await User.findById(userId).select("-password");
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    return res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        email: user.email,
+        createdAt: user.createdAt,
+
+        // nếu sau này bạn thêm các field này trong schema thì tự động có
+        name: user.name || "",
+        phone: user.phone || "",
+        avatarUrl: user.avatarUrl || "",
+      },
+    });
+  } catch (e) {
+    console.error("GET /me error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PUT /api/auth/me
+router.put("/me", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Invalid token payload" });
+
+    const { name, phone, avatarUrl } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { name, phone, avatarUrl },
+      { new: true }
+    ).select("-password");
+
+    return res.json({ success: true, user });
+  } catch (e) {
+    console.log("PUT /api/auth/me error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 module.exports = router;
