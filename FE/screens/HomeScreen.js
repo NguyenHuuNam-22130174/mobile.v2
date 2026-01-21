@@ -25,10 +25,24 @@ import TrendingMovies from "../components/trendingMovies";
 const ios = Platform.OS === "ios";
 const HEADER_HEIGHT = ios ? 60 : 70;
 
+/**
+ * Chuẩn hoá chuỗi để tạo key unique an toàn.
+ * @param {any} s
+ * @returns {string}
+ */
 const norm = (s) => (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, " ");
-const date10 = (d) => (d ? String(d).slice(0, 10) : "");
 
-// ưu tiên field nào có thì lấy làm "điểm" để sort
+/**
+ * Lấy YYYY-MM-DD (10 ký tự) từ date string.
+ * @param {any} d
+ * @returns {string}
+ */
+const date10 = (d) => (d ? String(d).slice(0, 10) : "");
+/**
+ * Ưu tiên field nào có thì lấy làm điểm sort (top rated).
+ * @param {Movie} m
+ * @returns {number}
+ */
 function getMovieScore(m) {
     return (
         m?.voteAverage ??
@@ -40,6 +54,12 @@ function getMovieScore(m) {
     );
 }
 
+/**
+ * Check movie có genreId không.
+ * @param {Movie} movie
+ * @param {number|string} genreId
+ * @returns {boolean}
+ */
 function hasGenre(movie, genreId) {
     const list = movie?.genres || [];
     return list.some(
@@ -47,6 +67,11 @@ function hasGenre(movie, genreId) {
     );
 }
 
+/**
+ * Lấy top genres được xem nhiều nhất từ danh sách movie.
+ * @param {Movie[]} movies
+ * @returns {(Genre & {count:number})[]}
+ */
 function getMostWatchedGenres(movies) {
     const genreCount = {};
 
@@ -69,6 +94,11 @@ function getMostWatchedGenres(movies) {
         .slice(0, 2); // top 2 genres
 }
 
+/**
+ * Tạo key unique cho movie để loại trùng (title + releaseDate) hoặc fallback id.
+ * @param {Movie} m
+ * @returns {string}
+ */
 const getMovieKey = (m) => {
     const title = norm(m?.title ?? m?.name);
     const date = date10(m?.releaseDate ?? m?.release_date);
@@ -77,6 +107,12 @@ const getMovieKey = (m) => {
     return id ? `id:${id}` : "";
 };
 
+/**
+ * Loại trùng danh sách theo getMovieKey.
+ * @template T
+ * @param {T[]} list
+ * @returns {T[]}
+ */
 function uniqueByKey(list) {
     const seen = new Set();
     const out = [];
@@ -89,12 +125,21 @@ function uniqueByKey(list) {
     return out;
 }
 
+//#region HomeScreen
+/**
+ * Home screen: load danh sách movies, trending, upcoming, top rated,
+ * recently seen + recommended based on genres xem nhiều.
+ * @returns {JSX.Element}
+ */
 export default function HomeScreen() {
+    //#region Hooks / Context
     const navigation = useNavigation();
     const { theme, isDarkMode } = useTheme();
     const insets = useSafeAreaInsets();
     const HEADER_TOTAL = HEADER_HEIGHT + (insets?.top || 0);
+    //#endregion
 
+    //#region State
     // DATA states 
     const [trending, setTrending] = useState([]);
     const [upcoming, setUpcoming] = useState([]);
@@ -106,6 +151,7 @@ export default function HomeScreen() {
     const [allMovies, setAllMovies] = useState([]);
 
     const [loading, setLoading] = useState(true);
+    //#endregion
 
     // animation
     const fadeAnim = useRef(new Animated.Value(0)).current;

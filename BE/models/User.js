@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
 
-    // ✅ thêm các field profile ở đây
     name: { type: String, default: "" },
     phone: { type: String, default: "" },
     avatarUrl: { type: String, default: "" },
