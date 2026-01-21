@@ -32,10 +32,16 @@ import {
   postRecentlySeen,
 } from "../api/moviedb";
 
+// #region Layout constants & utils
 const ios = Platform.OS === "ios";
 const topMargin = ios ? "" : " mt-3";
 const { width, height } = Dimensions.get("window");
 
+/**
+ * Lấy Youtube videoId từ url (watch/embed/shorts/youtu.be).
+ * @param {string} url
+ * @returns {string} videoId hoặc chuỗi rỗng nếu không khớp
+ */
 const getYoutubeId = (url) => {
   if (!url || typeof url !== "string") return "";
   const match = url.match(
@@ -43,8 +49,15 @@ const getYoutubeId = (url) => {
   );
   return match?.[1] || "";
 };
+// #endregion Layout constants & utils
 
+
+/**
+ * MovieScreen
+ * @returns {JSX.Element}
+ */
 export default function MovieScreen() {
+    // #region Navigation & Params
   const route = useRoute();
   const navigation = useNavigation();
   const params = route?.params ?? {};
@@ -57,6 +70,7 @@ export default function MovieScreen() {
     const id = params?._id ?? params?.id ?? params?.movieId;
     return id ? String(id) : "";
   }, [params]);
+    // #endregion Navigation & Params
 
   const [movie, setMovie] = useState(initialMovie);
   const [loading, setLoading] = useState(true);
@@ -83,6 +97,7 @@ export default function MovieScreen() {
 
   const busy = submittingRating || submittingComment;
 
+    // #region Rating picker config + components
   const FIVE_MILESTONES = [
     { value: 2, label: "Dở tệ", emoji: "😭" },
     { value: 4, label: "Phim chán", emoji: "😕" },
@@ -90,10 +105,26 @@ export default function MovieScreen() {
     { value: 8, label: "Phim hay", emoji: "😊" },
     { value: 10, label: "Tuyệt vời", emoji: "😍" },
   ];
-
+  /**
+   * @param {number} v
+   * @returns {string}
+   */
   const getMilestoneLabel = (v) =>
     FIVE_MILESTONES.find((x) => x.value === v)?.label || "";
 
+  /**
+   * @typedef {Object} FiveMilestoneTenPickerProps
+   * @property {number} value - 1 trong các mốc: 2/4/6/8/10
+   * @property {(val:number)=>void} onChange
+   * @property {string=} activeColor
+   * @property {boolean=} disabled
+   */
+  
+  /**
+   * Picker 5 mốc điểm (2/4/6/8/10) theo cảm xúc.
+   * @param {FiveMilestoneTenPickerProps} props
+   * @returns {JSX.Element}
+   */
   const FiveMilestoneTenPicker = ({
     value,
     onChange,
@@ -167,12 +198,25 @@ export default function MovieScreen() {
       </View>
     );
   };
+    // #endregion Rating picker config + components
 
+
+    // #region Comment helpers
+      /**
+   * Chuẩn hoá response comment từ nhiều dạng payload khác nhau.
+   * @param {any} rs
+   * @returns {Array<Comment>}
+   */
   const normalizeComments = useCallback((rs) => {
     const list = rs?.results || rs?.data || rs?.comments || rs || [];
     return Array.isArray(list) ? list : [];
   }, []);
 
+   /**
+   * Kiểm tra comment có phải của user hiện tại không (theo myCommentId / userId / username).
+   * @param {Comment} c
+   * @returns {boolean}
+   */
   const isMyComment = useCallback(
     (c) => {
       const cid = c?._id || c?.id;
@@ -190,6 +234,11 @@ export default function MovieScreen() {
     [me?.user, me?.userId, myCommentId]
   );
 
+  /**
+   * Load comments từ API + tự tìm comment của mình để fill lên form.
+   * - comment “rating-only” (không có nội dung) sẽ bị ẩn khỏi list hiển thị.
+   * @returns {Promise<void>}
+   */
   const refreshComments = useCallback(async () => {
     if (!movieId) return;
 
@@ -245,8 +294,15 @@ export default function MovieScreen() {
       setLoadingComments(false);
     }
   }, [movieId, me?.userId, me?.user, normalizeComments]);
+  // #endregion Comment helpers
 
+  // #region Submit handlers: rating & comment
   // 2 handlers riêng
+  /**
+   * Gửi rating lên server.
+   * Lưu ý: giữ lại comment cũ (savedCommentText) để tránh backend ghi đè review thành rỗng.
+   * @returns {Promise<void>}
+   */
   const handleSubmitRating = useCallback(async () => {
     if (!movieId || busy) return;
     try {
@@ -274,6 +330,12 @@ export default function MovieScreen() {
     }
   }, [movieId, myRating, savedCommentText, busy]);
 
+  /**
+   * Gửi comment lên server.
+   * - Nếu đã có savedRating thì dùng savedRating (comment không tự ý đổi điểm).
+   * - Sau khi gửi: refreshComments để đồng bộ list + trạng thái “mine”.
+   * @returns {Promise<void>}
+   */
   const handleSubmitComment = useCallback(async () => {
     if (!movieId || busy) return;
     const text = String(commentText || "").trim();
@@ -306,8 +368,10 @@ export default function MovieScreen() {
       setSubmittingComment(false);
     }
   }, [movieId, commentText, savedRating, myRating, busy, refreshComments]);
+  // #endregion Submit handlers: rating & comment
 
-  // ✅ 0) ME từ API
+  // #region Effects: load me
+  // 0) ME từ API
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -332,8 +396,10 @@ export default function MovieScreen() {
       cancelled = true;
     };
   }, []);
+  // #endregion Effects: load me
 
-  // ✅ 1) Movie detail + credits từ API
+  // #region Effects: load movie detail + credits
+  // 1) Movie detail + credits từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -375,8 +441,10 @@ export default function MovieScreen() {
       cancelled = true;
     };
   }, [movieId]);
+  // #endregion Effects: load movie detail + credits
 
-  // ✅ 2) Favorite status từ API
+  // #region Effects: favorite status
+  // 2) Favorite status từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -397,8 +465,10 @@ export default function MovieScreen() {
       cancelled = true;
     };
   }, [movieId]);
+  // #endregion Effects: favorite status
 
-  // ✅ 3) RecentlySeen log từ API
+  // #region Effects: recently seen
+  // 3) RecentlySeen log từ API
   useEffect(() => {
     (async () => {
       if (!movieId) return;
@@ -407,8 +477,10 @@ export default function MovieScreen() {
       } catch (e) {}
     })();
   }, [movieId]);
+  // #endregion Effects: recently seen
 
-  // ✅ 4) Similar từ API
+  // #region Effects: similar movies
+  // 4) Similar từ API
   useEffect(() => {
     let cancelled = false;
 
@@ -426,18 +498,28 @@ export default function MovieScreen() {
       cancelled = true;
     };
   }, [movieId]);
+  // #endregion Effects: similar movies
 
-  // ✅ 5) Comments từ API
+  // #region Effects: comments
+  // 5) Comments từ API
   useEffect(() => {
     if (!movieId) return;
     refreshComments();
   }, [movieId, me?.userId, me?.user, refreshComments]);
+  // #endregion Effects: comments
 
+  // #region Effects: params sync (quick update when route changes)
   // params đổi thì update nhanh (không phải local storage)
   useEffect(() => {
     setMovie(initialMovie);
   }, [initialMovie]);
+  // #endregion Effects: params sync (quick update when route changes)
 
+  // #region Favorite handler
+  /**
+   * Toggle trạng thái yêu thích (favorite).
+   * @returns {Promise<void>}
+   */
   async function handleToggleFavorite() {
     if (!movieId) return;
     try {
@@ -449,12 +531,16 @@ export default function MovieScreen() {
       console.log("toggleFavorite error:", e?.message || e);
     }
   }
+  // #endregion Favorite handler
 
+  // #region Loading guard
   if (loading) return <Loading />;
+  // #endregion Loading guard
 
+  // #region Render
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 20 }} className="flex-1 bg-neutral-900">
-      {/* HEADER */}
+      {/* #region HEADER */}
       <View className="w-full">
         <SafeAreaView className={"absolute z-20 w-full flex-row justify-between items-center px-4 " + topMargin}>
           <TouchableOpacity style={styles.background} className="rounded-xl p-1" onPress={() => navigation.goBack()}>
@@ -479,9 +565,11 @@ export default function MovieScreen() {
           />
         </View>
       </View>
+      {/* #endregion HEADER */}
 
-      {/* CONTENT */}
+      {/* #region CONTENT */}
       <View style={{ marginTop: -(height * 0.09) }} className="space-y-3">
+        {/* #region Title / Year / Genres / Overview */}
         <Text className="text-white text-center text-3xl font-bold">{movie.title}</Text>
         <Text className="text-neutral-400 text-center">{movie.releaseDate?.split("-")[0] || "N/A"}</Text>
 
@@ -492,8 +580,9 @@ export default function MovieScreen() {
         </View>
 
         <Text className="text-neutral-400 mx-4 tracking-wide">{movie.overview || "No description"}</Text>
+        {/* #endregion Title / Year / Genres / Overview */}
 
-        {/* DIRECTOR */}
+        {/* #region DIRECTOR */}
         <View className="mx-4 mt-4">
           <Text className="text-white text-lg font-semibold mb-2">Đạo diễn</Text>
           {movie?.director ? (
@@ -504,8 +593,9 @@ export default function MovieScreen() {
             <Text className="text-neutral-500">Chưa có dữ liệu đạo diễn</Text>
           )}
         </View>
+        {/* #endregion DIRECTOR */}
 
-        {/* CAST */}
+        {/* #region CAST */}
         <View className="mx-4 mt-4">
           <Text className="text-white text-lg font-semibold mb-2">Diễn viên</Text>
 
@@ -536,8 +626,9 @@ export default function MovieScreen() {
             <Text className="text-neutral-500">Chưa có dữ liệu diễn viên</Text>
           )}
         </View>
+        {/* #endregion CAST */}
 
-        {/* SIMILAR MOVIES */}
+        {/* #region SIMILAR MOVIES */}
         <View className="mx-4 mt-6">
           <Text className="text-white text-lg font-semibold mb-2">Phim tương tự</Text>
 
@@ -581,8 +672,9 @@ export default function MovieScreen() {
             <Text className="text-neutral-500">Chưa có phim tương tự</Text>
           )}
         </View>
+        {/* #endregion SIMILAR MOVIES */}
 
-        {/* RATING */}
+        {/* #region RATING */}
         <View className="mx-4 mt-6" style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#262626" }}>
           <Text className="text-white text-lg font-semibold mb-2">Đánh giá phim</Text>
 
@@ -624,8 +716,9 @@ export default function MovieScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        {/* #endregion RATING */}
 
-        {/* COMMENTS */}
+        {/* #region COMMENTS */}
         <View className="mx-4 mt-4" style={{ padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#262626" }}>
           <Text className="text-white text-lg font-semibold mb-2">Bình luận</Text>
 
@@ -702,9 +795,11 @@ export default function MovieScreen() {
             )}
           </View>
         </View>
+        {/* #endregion COMMENTS */}
       </View>
+      {/* #endregion CONTENT */}
 
-      {/* TRAILER */}
+      {/* #region TRAILER */}
       <TouchableOpacity
         style={{
           position: "absolute",
@@ -722,6 +817,8 @@ export default function MovieScreen() {
       >
         <Text style={{ color: "white", fontSize: 28 }}>▶</Text>
       </TouchableOpacity>
+      {/* #endregion TRAILER button */}
     </ScrollView>
   );
+  // #endregion Render
 }

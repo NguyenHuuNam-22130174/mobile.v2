@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 
 const Movie = require("../models/Movie");
 const Genre = require("../models/Genre");
-const Person = require("../models/Person"); // ✅ thêm
+const Person = require("../models/Person");
 
 const MONGO_URI = process.env.MONGO_URI;
 
